@@ -1,12 +1,17 @@
 package nycBusDelays;
 
+import org.apache.flink.api.common.serialization.SimpleStringEncoder;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink;
+import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.DefaultRollingPolicy;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Properties;
-import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
 public class Utils {
     ///Properties
@@ -17,13 +22,12 @@ public class Utils {
     }
 
     /// time conversion-rounding support
-    public static final ZoneId ZONE_ID_NYC = ZoneId.of("America/New_York");
     private static final DateTimeFormatter dateStrFormatterDayGranularity=DateTimeFormatter.ofPattern("dd-MM-yyyy");
     private static final DateTimeFormatter dateStrFormatter=DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
 
     public static String convertTs(Long timeStamp,boolean dayGranularity) {    //TimeStamp -> string
         //if given dayGranularity returned string indicating the day of the timestamp, otherwise use a seconds granularity
-        LocalDateTime date=LocalDateTime.ofInstant(Instant.ofEpochMilli(timeStamp),ZONE_ID_NYC);
+        LocalDateTime date=LocalDateTime.ofInstant(Instant.ofEpochMilli(timeStamp),ZoneOffset.UTC); //nyc utc offset already inserted at the source
         if (dayGranularity) return date.format(dateStrFormatterDayGranularity);
         else                return date.format(dateStrFormatter);
     }
@@ -34,11 +38,27 @@ public class Utils {
      * @return the timestamp rounded down to midnight in milliseconds from epoch
      */
     public static Long roundTsDownMidnight(Long timestamp) {
-        LocalDateTime date = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp),ZONE_ID_NYC);
+        LocalDateTime date = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp),ZoneOffset.UTC);
         LocalDateTime midnight=date.truncatedTo(ChronoUnit.DAYS);
-        return midnight.atZone(ZONE_ID_NYC).toEpochSecond()*1000;
+        return midnight.toInstant(ZoneOffset.UTC).toEpochMilli();
+    }
+
+    //flink quick sinks
+    public static <T> StreamingFileSink<T> fileOutputSink(String outPath){
+
+        return  StreamingFileSink.forRowFormat(new Path(outPath),new SimpleStringEncoder<T>("UTF-8"))
+                .withRollingPolicy(
+                        DefaultRollingPolicy.builder()
+                                .withRolloverInterval(TimeUnit.MINUTES.toMillis(1))
+                                .withInactivityInterval(TimeUnit.MINUTES.toMillis(5))
+                                .withMaxPartSize(1024 * 1024 * 1024)
+                                .build())
+                .build();
     }
     public static void main(String[] args) throws Exception {
-        long ts=1452230280000L;
+        long ts=1441092540000L;
+        System.out.println(convertTs(ts,true));
+        System.out.println(convertTs(ts,false));
+        System.out.println(convertTs(roundTsDownMidnight(ts),true));
     }
 }

@@ -27,6 +27,7 @@ import java.io.File;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.concurrent.TimeUnit;
 
 
@@ -35,12 +36,11 @@ public class Query2 {
     private static final String CSV_LIST_SEP = " ";
     private static final String AM_START_TS_OFFSET = "09:00", AM_END_TS_OFFSET = "12:00";
     private static final String PM_START_TS_OFFSET = "12:00", PM_END_TS_OFFSET = "19:00";
-    private static final int INITIAL_CAPACITY = 25;
+    private static final String OUT_PATH = "csv2";
     public static int TOPN = 3;
     public static String HOSTNAME = "localhost";//"172.17.0.1";
     public static int PORT = 5555;
     public static Time WINDOW_SIZE = Time.days(7);
-    private static int SINK_PARALLELISM = 1;
 
     public static void main(String[] args) throws Exception {
 
@@ -70,7 +70,7 @@ public class Query2 {
         DataStream<Tuple2<Long, String>>[] delayTimeRanges = new DataStream[]{delayReasonsAM, delayReasonsPM};
         for (int i = 0; i < delayTimeRanges.length; i++) {
             DataStream<Tuple2<Long, String>> delayRange = delayTimeRanges[i];
-            //count delays Reasons in time windows by appending 1 to each tuple + reduce summing
+            //count delays Reasons in time windows by appending 1 to each tuple + reduce summing counts
             //contains <winStartTS,reason,count>
             SingleOutputStreamOperator<Tuple3<Long, String, Long>> delayCounts = delayRange.map(new MapFunction<Tuple2<Long, String>, Tuple3<Long, String, Long>>() {
                 @Override
@@ -91,9 +91,16 @@ public class Query2 {
             });
             //get the topN reasons by their count using a thread safe priority queue in tuple <winStartTs, "top1stReason ,top2ndReason...">
             //also round timestamps to the midnight of their associated day for later join different timeRange streams
-            DataStream<Tuple2<Long, String>> reasonsRanked = delayCounts.keyBy(0).timeWindow(WINDOW_SIZE).aggregate(
-                    new RankReasons(TOPN, CSV_LIST_SEP));
-
+            DataStream<Tuple2<Long, String>> reasonsRanked =delayCounts.keyBy(0).timeWindow(WINDOW_SIZE).aggregate(new RankReasons(TOPN, CSV_LIST_SEP));
+            //TODO SCALABLE VERSION OF RANKING: pre ranking on sub key space -> final ranking on all partial results
+            //divide the key space for each time win rank with respect of groups of reasons
+            /*final int SUB_RANK_LEVEL=2;
+            reasonsRanked = delayCounts.keyBy(new KeySelector<Tuple3<Long, String, Long>, Tuple2<Long, Integer>>() {
+                @Override
+                public Tuple2<Long, Integer> getKey(Tuple3<Long, String, Long> value) throws Exception {
+                    return new Tuple2<>(value.f0, value.f1.hashCode() % SUB_RANK_LEVEL);
+                }
+            }).timeWindow(WINDOWSIZE).aggregate(PARTIAL RANK).keyBy(0).timeWindow(WINDOW_SIZE).aggregate(new RankReasons(TOPN, CSV_LIST_SEP));*/
             delayTimeRanges[i] = reasonsRanked; //save rank
         }
 
@@ -113,17 +120,7 @@ public class Query2 {
             });
 
 
-        Path outFile=Path.fromLocalFile(new File("/home/andysnake/IdeaProjects/sabdPrj2/2.csv"));
-        final StreamingFileSink<Tuple2<String,String>> sink = StreamingFileSink
-                .forRowFormat(outFile,new SimpleStringEncoder<Tuple2<String,String>>("UTF-8"))
-                .withRollingPolicy(
-                        DefaultRollingPolicy.builder()
-                                .withRolloverInterval(TimeUnit.MINUTES.toMillis(1))
-                                .withInactivityInterval(TimeUnit.MINUTES.toMillis(5))
-                                .withMaxPartSize(1024 * 1024 * 1024)
-                                .build())
-                .build();
-        joinedStream.addSink(sink).setParallelism(1);
+        joinedStream.addSink(Utils.fileOutputSink(OUT_PATH)).setParallelism(1);
         env.execute("Q2");
     }
 
@@ -141,7 +138,7 @@ public class Query2 {
 
         @Override
         public boolean filter(Tuple2<Long, String> tuple) throws Exception { //True if the timestamp field of the tuple fall in the given timerange
-            LocalTime tupleTime=LocalDateTime.ofInstant(Instant.ofEpochMilli(tuple.f0),Utils.ZONE_ID_NYC).toLocalTime();
+            LocalTime tupleTime=LocalDateTime.ofInstant(Instant.ofEpochMilli(tuple.f0), ZoneOffset.UTC).toLocalTime();
             return timeRangeStart.isBefore(tupleTime) && tupleTime.isBefore(timeRangeEnd);
         }
     }

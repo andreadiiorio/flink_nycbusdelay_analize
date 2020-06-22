@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class Query1 {
     private static final String CSV_LIST_SEP = " ";
+    private static final String OUT_PATH = "csv1";
     public static String HOSTNAME = "localhost";//"172.17.0.1";
     public static int PORT = 5555;
     public static Time WINDOW_SIZE = Time.days(7);
@@ -76,33 +77,12 @@ public class Query1 {
                 return new Tuple2<>(value1.f0, value1.f1 + CSV_LIST_SEP + value2.f1 + CSV_LIST_SEP);
             }
         });
-        /*.reduce(new ReduceFunction<Tuple2<Long, String>>() {      //TODO CHECK NO RE WINDOWING
-            @Override
-            public Tuple2<Long, String> reduce(Tuple2<Long, String> value1, Tuple2<Long, String> value2) throws Exception {
-                if (! value1.f0.equals(value2.f0)) System.err.println("FKK KEYS" + value1.f0 + " " + value2.f0); //TODO DEBUG CHECK
-                return new Tuple2<>(value1.f0, value1.f1 + value2.f1);
-            }
-        });
-//        SingleOutputStreamOperator<Tuple2<Long, String>> outt = delaysNeighboroAverges.keyBy(0).sum(0);
-*/
-
-
-        Path outFile=Path.fromLocalFile(new File("/home/andysnake/IdeaProjects/sabdPrj2/1.csv"));
-        final StreamingFileSink<String> sink = StreamingFileSink
-                .forRowFormat(outFile,new SimpleStringEncoder<String>("UTF-8"))
-                .withRollingPolicy(
-                        DefaultRollingPolicy.builder()
-                                .withRolloverInterval(TimeUnit.MINUTES.toMillis(1))
-                                .withInactivityInterval(TimeUnit.MINUTES.toMillis(5))
-                                .withMaxPartSize(1024 * 1024 * 1024)
-                                .build())
-                .build();
         out.map(new MapFunction<Tuple2<Long, String>, String>() {
             @Override
             public String map(Tuple2<Long, String> value) throws Exception {
                 return Utils.convertTs(value.f0,false)+CSV_LIST_SEP+value.f1;
             }
-        }).addSink(sink).setParallelism(1);
+        }).addSink(Utils.fileOutputSink(OUT_PATH)).setParallelism(1);
         env.execute("Q1");
     }
 
