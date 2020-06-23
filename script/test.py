@@ -1,11 +1,12 @@
 #School_Year;Busbreakdown_ID;Run_Type;Bus_No;Route_Number;Reason;Schools_Serviced;Occurred_On;Created_On;Boro;Bus_Company_Name;How_Long_Delayed;Number_Of_Students_On_The_Bus;Has_Contractor_Notified_Schools;Has_Contractor_Notified_Parents;Have_You_Alerted_OPT;Informed_On;Incident_Number;Last_Updated_On;Breakdown_or_Running_Late;School_Age_or_PreK
 #perf time DELL 8,781169884
 from time import sleep
-from calendar import timegm
-from datetime import datetime,timezone
+from collections import namedtuple 
+from datetime import datetime,timezone,timedelta,time
 from csv import reader 
 from fractions import Fraction
 from os import environ as env
+from sys import stderr
 QUERY=1
 SLEEP_TIME,AWAKE_CYCLES_N=0.0088,50 #104,011132117 s
 if "QUERY" in env:      QUERY=int(env["QUERY"])
@@ -16,6 +17,7 @@ CSV_FNAME="bus-breakdown-and-delays.csv"
 CSV_SEPARATOR=";"
 
 parseTimeStrToTimestamp=lambda s:int(datetime.strptime(s,"%Y-%m-%dT%H:%M:%S.%f").replace(tzinfo=timezone.utc).timestamp()*1000)
+parseTimeStr=lambda s:datetime.strptime(s,"%Y-%m-%dT%H:%M:%S.%f")
 def cleanDelay(delayStr,startTime=None):
     #clean delayStr -> return delay ammount in minutes
     #if multiple num field are separated by "-" or "/" -> average them, otherwise sum
@@ -68,34 +70,106 @@ def cleanDelay(delayStr,startTime=None):
     return out
 
 
+#Simulate queries logic in tumbling windows
+SEP=" "
+SEPP="\t"
+def Query1(timeWindow): #average delays per neighboro
+    out=""
+    boroDelaysSum=dict()    #hold tuples (sum,count)
+    for delay in timeWindow:
+        if delay.boro not in boroDelaysSum:  boroDelaysSum[delay.boro]=[0,0]
+        boroDelaysSum[delay.boro][0]+=delay.howLongDelayed
+        boroDelaysSum[delay.boro][1]+=1
+    boros=list(boroDelaysSum.keys())
+    boros.sort()
+    for b in boros:
+        tot,count=boroDelaysSum[b]
+        out+=b+SEP+str(tot/count)+SEP
+    return out
+
+def listToStr(l):
+    out=""
+    for x in l: 
+        for y in x: out+=str(y)+SEP
+    return out
+
+def Query2(timeWindow):
+    out=""
+    timeRangeAMStart,timeRangeAMEnd=time(5,0),time(11,59)
+    timeRangePMStart,timeRangePMEnd=time(12,0),time(19,00)
+    rankAM,rankPM=dict(),dict()
+    #count reason in separated box per time range
+    discarded=0
+    for delay in timeWindow:
+        eventTime=delay.occurredOn.time()
+        if timeRangeAMStart <= eventTime and eventTime <= timeRangeAMEnd:
+            if delay.reason not in rankAM: rankAM[delay.reason]=0
+            rankAM[delay.reason]+=1
+        elif timeRangePMStart <= eventTime and eventTime <= timeRangePMEnd:
+            if delay.reason not in rankPM: rankPM[delay.reason]=0
+            rankPM[delay.reason]+=1
+        else:   discarded+=1;print(discarded,delay.occurredOn,delay.id,file=stderr)
+    #sort and concat the top 3 reason 
+    amCounts=list(rankAM.items())
+    amCounts.sort(key=lambda t:t[1],reverse=True)
+
+    pmCounts=list(rankPM.items())
+    pmCounts.sort(key=lambda t:t[1],reverse=True)
+
+    out+="AM"+SEP+listToStr(amCounts[:3])+SEPP+"PM"+SEP+listToStr(pmCounts[:3])
+    #TODO DEBUG CHECK
+    #if len(amCounts)+len(pmCounts)<5: print(len(timeWindow),out,timeWindow[0].occurredOn,timeWindow[-1].id,discarded,file=stderr)
+    return out
+
 csvFp=open(CSV_FNAME,newline="")
 csvIterator=reader(csvFp,delimiter=CSV_SEPARATOR)
 header=csvIterator.__next__()
-i=1
-oldTS=0
+i=2
+WINDOW_SIZE=timedelta(hours=24)
+winStartDate=None #datetime.strptime("27-08-2015","%d-%m-%Y")
+timeWindow=list()   #hold events occurred in the given time range -> Tumbling window
+
+#named tuple to wrap main fields parsed from dataset
+BusDelays=namedtuple("BusDelays",["occurredOn","boro","howLongDelayed","reason","id"])
+
+err=None
 for fields in csvIterator:
-    #parse main fields and skip if some of them make the execution of the query imposible
-    occurredOn,createdOn,boro,howLongDelayed,reason=fields[7],fields[8],fields[9],fields[11],fields[5]
+    id,occurredOn,createdOn,boro,howLongDelayed,reason=fields[1],fields[7],fields[8],fields[9],fields[11],fields[5]
     #TODO ASK if SKIP_NULL_DELAY and (len(howLongDelayed)==0 or howLongDelayed=="0"):   continue
     #oldDelayStr=howLongDelayed
     try: howLongDelayed=cleanDelay(howLongDelayed,occurredOn)
     except: 
-        if QUERY==1:    continue                #SKIP MISFORMED FIELD
+        if QUERY==1:    err="delay"
     #except Exception as e:         print("CORRUPTED:",howLongDelayed, e) #CORRUPTED DELAYS LINES: 105299,144  83793,146
     #print(oldDelayStr,"->",howLongDelayed)
-    if len(reason)==0 and QUERY==2:     continue 
-    if len(boro)==0 and QUERY==1:       continue
-
+    if len(boro)==0 and QUERY==1:       err="boro"
+    if len(reason)==0 and QUERY==2:     err="reason"
+    #TODO NULL REASON at tuple with ids: 1365205    1365164
+    if err!=None:
+        print(id,occurredOn,createdOn,boro,howLongDelayed,reason,i,err,file=stderr)
+        err=None
+        continue
+    i+=1
     #prepare output strings
-    occurredOn=parseTimeStrToTimestamp(occurredOn)
+    occurredOn=parseTimeStr(occurredOn)
     boro=boro.replace(" ","_")
     reason=reason.replace(" ","_")
-    #print("occurredOn:",occurredOn,"boro",boro,"howLongDelayed",howLongDelayed,"reason",reason)
-    if QUERY==1:    print(occurredOn,boro,howLongDelayed)
-    elif QUERY==2:  print(occurredOn,reason)                
-    
+
+    if winStartDate==None:   winStartDate=occurredOn.replace(hour=0, minute=0, second=0, microsecond=0)    #iter 0 
+    #tumbling window ended
+    if occurredOn>winStartDate+WINDOW_SIZE:
+        if QUERY==1:    print(winStartDate,Query1(timeWindow))
+        elif QUERY==2:  print(winStartDate,Query2(timeWindow))
+        #prepare a new time window
+        timeWindow.clear()
+        winStartDate=occurredOn.replace(hour=0, minute=0, second=0, microsecond=0)
+        #winStartDate+=WINDOW_SIZE
+    timeWindow.append(BusDelays(occurredOn,boro,howLongDelayed,reason,id))
 
     #if i%AWAKE_CYCLES_N==0:sleep(SLEEP_TIME);    i+=1
+if len(timeWindow)>0:
+    if QUERY==1:    print(winStartDate,Query1(timeWindow))
+    elif QUERY==2:  print(winStartDate,Query2(timeWindow))
 
 csvFp.close()
 

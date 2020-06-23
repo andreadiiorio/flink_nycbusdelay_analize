@@ -30,7 +30,7 @@ public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>
         @Override
         public TreeSet<Tuple3<Long, String, Long>> add(Tuple3<Long, String, Long> value, TreeSet<Tuple3<Long, String, Long>> accumulator) {
                 accumulator.add(value);
-                if (accumulator.size()>TOPN)    accumulator.pollLast(); //keep just the topN elements -> O(n log k ) for the topK ranking
+                if (accumulator.size()>TOPN)    accumulator.pollFirst(); //keep just the topN elements -> O(n log k ) for the topK ranking
                 return accumulator;
         }
 
@@ -39,9 +39,9 @@ public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>
                 //concat top reasons extracting the priorityQueue head multiple times
                 String outRanks = "";
                 Tuple3<Long, String, Long> head = null;
-                //System.out.println("Size:"+accumulator.size());
-                for (int x = 0; x < accumulator.size(); x++) {
-                        head = accumulator.pollFirst();
+                int topNRanked = accumulator.size();
+                for (int x = 0; x < topNRanked; x++) {
+                        head = accumulator.pollLast();
                         outRanks += head.f1 + CSV_LIST_SEP + head.f2 + CSV_LIST_SEP;    //TODO ALSO COUNT ADDED
                 }
                 //build the rank with the concatenated reasons ranked + starting common timestamp  rounded down to the midnight of the associated day
@@ -53,8 +53,9 @@ public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>
         @Override
         public TreeSet<Tuple3<Long, String, Long>> merge(TreeSet<Tuple3<Long, String, Long>> a, TreeSet<Tuple3<Long, String, Long>> b) {
                 a.addAll(b);
+                //resize the merged treeSet to keep the topK
                 int extraElements=a.size()-TOPN;
-                for (int x=0;x<extraElements && extraElements>0;x++)       a.pollLast();   //resize the merged treeSet to keep the topK
+                for (int x = 0; x < extraElements; x++)       a.pollLast();
                 return a;
 
         }

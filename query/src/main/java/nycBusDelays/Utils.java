@@ -1,9 +1,12 @@
 package nycBusDelays;
 
 import org.apache.flink.api.common.serialization.SimpleStringEncoder;
+import org.apache.flink.api.java.tuple.Tuple;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink;
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.DefaultRollingPolicy;
+import scala.Int;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -60,5 +63,13 @@ public class Utils {
         System.out.println(convertTs(ts,true));
         System.out.println(convertTs(ts,false));
         System.out.println(convertTs(roundTsDownMidnight(ts),true));
+
+        Tuple2<Integer, Integer> a = new Tuple2<Integer, Integer>(0, 0) {
+            @Override
+            public String toString() {
+                return this.f0+","+this.f1;
+            }
+        };
+        System.out.println(a);
     }
 }

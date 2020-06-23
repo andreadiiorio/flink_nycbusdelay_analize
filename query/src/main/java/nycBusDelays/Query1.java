@@ -2,18 +2,13 @@ package nycBusDelays;
 
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
-import org.apache.flink.api.common.serialization.SimpleStringEncoder;
-import org.apache.flink.api.java.io.TextOutputFormat;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
-import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink;
-import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.DefaultRollingPolicy;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.api.windowing.time.Time;
@@ -21,10 +16,8 @@ import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.util.Collector;
 
 import javax.annotation.Nullable;
-import java.io.File;
-import java.nio.file.FileSystems;
 import java.util.Iterator;
-import java.util.concurrent.TimeUnit;
+
 
 /**
  *
@@ -34,10 +27,12 @@ public class Query1 {
     private static final String OUT_PATH = "csv1";
     public static String HOSTNAME = "localhost";//"172.17.0.1";
     public static int PORT = 5555;
-    public static Time WINDOW_SIZE = Time.days(7);
+    private static final String CSV_SEP = ",";
+    public static Time WINDOW_SIZE = Time.hours(24);
     private static int SINK_PARALLELISM = 1;
 
     public static void main(String[] args) throws Exception {
+        long end,start=System.nanoTime();
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
         // get input data by connecting to the socket
@@ -51,7 +46,7 @@ public class Query1 {
                 String[] fields = line.split("\\s");                            //"occurredOn","boro","howLongDelayed"return null;
                 return new Tuple3(Long.valueOf(fields[0]), fields[1], Float.valueOf(fields[2]));
             } //extract timestamp from first field
-        }).assignTimestampsAndWatermarks(new WatermarkingStrict()); //eventTimeWatermarking //TODO RETRY WITH ASCENDING TS -> EXPECTED EURISTIC WATERMARKING -> FLUCTUATING RESOULTS
+        }).assignTimestampsAndWatermarks(new WatermarkingStrict());
 
         ///aggregate delays per boro in averages from EventTime Windows -> out: <startTS,"boro avg(of boro in [startTS,startTS+winSize)" )
         DataStream<Tuple2<Long, String>> delaysNeighboroAverges = delaysNeighboro.keyBy(1).timeWindow(WINDOW_SIZE)
@@ -62,31 +57,33 @@ public class Query1 {
                         String boroKey = tuple.getField(0);
                         Iterator<Double> all = elements.iterator();
                         Double avgOfBoro = all.next();//elements.iterator().next();    //expected only 1 element
-                        if (all.hasNext())  System.err.println("NOT 1! AGGREGATED ELEMENT" + all.next());    //TODO DEBUG CHECK
                         Long startTimeOfWindow = context.window().getStart();
                         out.collect(new Tuple2<>(startTimeOfWindow, boroKey + CSV_LIST_SEP + avgOfBoro + CSV_LIST_SEP));
                     }
                 });
-
+        //TODO FLINK WINDOWS START TIME FKK!! delaysNeighboroAverges.map(new ConvertTs()).print().setParallelism(1);
         //group output neighboro's averages by starting timeStamp
         //reduce by rewindowing
         DataStream<Tuple2<Long, String>> out = delaysNeighboroAverges.keyBy(0)
                 .timeWindow(WINDOW_SIZE).reduce(new ReduceFunction<Tuple2<Long, String>>() {
-            @Override
-            public Tuple2<Long, String> reduce(Tuple2<Long, String> value1, Tuple2<Long, String> value2) throws Exception {
-                return new Tuple2<>(value1.f0, value1.f1 + CSV_LIST_SEP + value2.f1 + CSV_LIST_SEP);
-            }
-        });
-        out.map(new MapFunction<Tuple2<Long, String>, String>() {
-            @Override
-            public String map(Tuple2<Long, String> value) throws Exception {
-                return Utils.convertTs(value.f0,false)+CSV_LIST_SEP+value.f1;
-            }
-        }).addSink(Utils.fileOutputSink(OUT_PATH)).setParallelism(1);
+                    @Override
+                    public Tuple2<Long, String> reduce(Tuple2<Long, String> value1, Tuple2<Long, String> value2) throws Exception {
+                        return new Tuple2<>(value1.f0, value1.f1 + CSV_LIST_SEP + value2.f1 + CSV_LIST_SEP);
+                    }
+                });
+        out.map(new ConvertTs()).addSink(Utils.fileOutputSink(OUT_PATH)).setParallelism(SINK_PARALLELISM);
         env.execute("Q1");
+        end=System.nanoTime();
+        System.out.println("elapsed: "+((double)(end-start))/1000000000);
     }
 
-    ;
+
+    private static class ConvertTs implements MapFunction<Tuple2<Long, String>, String> {
+        @Override
+        public String map(Tuple2<Long, String> value) {
+            return Utils.convertTs(value.f0,true)+CSV_SEP+value.f1;
+        }
+    }
 
     /**
      * Strict watermarking generation -> a watermark produced after each encountered element
