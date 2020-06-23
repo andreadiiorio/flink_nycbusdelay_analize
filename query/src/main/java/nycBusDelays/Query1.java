@@ -23,11 +23,10 @@ import java.util.Iterator;
  *
  */
 public class Query1 {
-    private static final String CSV_LIST_SEP = " ";
+    private static final String CSV_SEP = ",";
     private static final String OUT_PATH = "csv1";
     public static String HOSTNAME = "localhost";//"172.17.0.1";
     public static int PORT = 5555;
-    private static final String CSV_SEP = ",";
     public static Time WINDOW_SIZE = Time.hours(24);
     private static int SINK_PARALLELISM = 1;
 
@@ -58,7 +57,7 @@ public class Query1 {
                         Iterator<Double> all = elements.iterator();
                         Double avgOfBoro = all.next();//elements.iterator().next();    //expected only 1 element
                         Long startTimeOfWindow = context.window().getStart();
-                        out.collect(new Tuple2<>(startTimeOfWindow, boroKey + CSV_LIST_SEP + avgOfBoro + CSV_LIST_SEP));
+                        out.collect(new Tuple2<>(startTimeOfWindow, boroKey + CSV_SEP + avgOfBoro ));
                     }
                 });
         //TODO FLINK WINDOWS START TIME FKK!! delaysNeighboroAverges.map(new ConvertTs()).print().setParallelism(1);
@@ -68,7 +67,7 @@ public class Query1 {
                 .timeWindow(WINDOW_SIZE).reduce(new ReduceFunction<Tuple2<Long, String>>() {
                     @Override
                     public Tuple2<Long, String> reduce(Tuple2<Long, String> value1, Tuple2<Long, String> value2) throws Exception {
-                        return new Tuple2<>(value1.f0, value1.f1 + CSV_LIST_SEP + value2.f1 + CSV_LIST_SEP);
+                        return new Tuple2<>(value1.f0, value1.f1 + CSV_SEP + value2.f1 );
                     }
                 });
         out.map(new ConvertTs()).addSink(Utils.fileOutputSink(OUT_PATH)).setParallelism(SINK_PARALLELISM);
@@ -78,12 +77,6 @@ public class Query1 {
     }
 
 
-    private static class ConvertTs implements MapFunction<Tuple2<Long, String>, String> {
-        @Override
-        public String map(Tuple2<Long, String> value) {
-            return Utils.convertTs(value.f0,true)+CSV_SEP+value.f1;
-        }
-    }
 
     /**
      * Strict watermarking generation -> a watermark produced after each encountered element

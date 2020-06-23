@@ -71,8 +71,7 @@ def cleanDelay(delayStr,startTime=None):
 
 
 #Simulate queries logic in tumbling windows
-SEP=" "
-SEPP="\t"
+SEP=","
 def Query1(timeWindow): #average delays per neighboro
     out=""
     boroDelaysSum=dict()    #hold tuples (sum,count)
@@ -116,7 +115,7 @@ def Query2(timeWindow):
     pmCounts=list(rankPM.items())
     pmCounts.sort(key=lambda t:t[1],reverse=True)
 
-    out+="AM"+SEP+listToStr(amCounts[:3])+SEPP+"PM"+SEP+listToStr(pmCounts[:3])
+    out+="AM"+SEP+listToStr(amCounts[:3])+SEP+"PM"+SEP+listToStr(pmCounts[:3])
     #TODO DEBUG CHECK
     #if len(amCounts)+len(pmCounts)<5: print(len(timeWindow),out,timeWindow[0].occurredOn,timeWindow[-1].id,discarded,file=stderr)
     return out
@@ -125,8 +124,8 @@ csvFp=open(CSV_FNAME,newline="")
 csvIterator=reader(csvFp,delimiter=CSV_SEPARATOR)
 header=csvIterator.__next__()
 i=2
-WINDOW_SIZE=timedelta(hours=24)
-winStartDate=None #datetime.strptime("27-08-2015","%d-%m-%Y")
+WINDOW_SIZE=timedelta(days=7)#(hours=24)
+winStartDate=datetime.strptime("27-08-2015","%d-%m-%Y")
 timeWindow=list()   #hold events occurred in the given time range -> Tumbling window
 
 #named tuple to wrap main fields parsed from dataset
@@ -158,8 +157,9 @@ for fields in csvIterator:
     if winStartDate==None:   winStartDate=occurredOn.replace(hour=0, minute=0, second=0, microsecond=0)    #iter 0 
     #tumbling window ended
     if occurredOn>winStartDate+WINDOW_SIZE:
-        if QUERY==1:    print(winStartDate,Query1(timeWindow))
-        elif QUERY==2:  print(winStartDate,Query2(timeWindow))
+        winStart=winStartDate.strftime("%d-%m-%Y")
+        if QUERY==1:    print(winStart,Query1(timeWindow),sep=SEP)
+        elif QUERY==2:  print(winStart,Query2(timeWindow),sep=SEP)
         #prepare a new time window
         timeWindow.clear()
         winStartDate=occurredOn.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -168,8 +168,9 @@ for fields in csvIterator:
 
     #if i%AWAKE_CYCLES_N==0:sleep(SLEEP_TIME);    i+=1
 if len(timeWindow)>0:
-    if QUERY==1:    print(winStartDate,Query1(timeWindow))
-    elif QUERY==2:  print(winStartDate,Query2(timeWindow))
+    winStart=winStartDate.strftime("%d-%m-%Y")
+    if QUERY==1:    print(winStart,Query1(timeWindow),sep=SEP)
+    elif QUERY==2:  print(winStart,Query2(timeWindow),sep=SEP)
 
 csvFp.close()
 

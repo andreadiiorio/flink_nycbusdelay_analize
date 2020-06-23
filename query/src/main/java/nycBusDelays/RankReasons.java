@@ -9,11 +9,11 @@ import java.util.*;
 
 public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>, TreeSet<Tuple3<Long, String, Long>>, Tuple2<Long, String>> {
         private int TOPN;
-        private String CSV_LIST_SEP;
+        private String CSV_SEP;
 
-        public RankReasons(int TOPN,  String CSV_LIST_SEP) {
+        public RankReasons(int TOPN,  String CSV_SEP) {
                 this.TOPN=TOPN;
-                this.CSV_LIST_SEP=CSV_LIST_SEP;
+                this.CSV_SEP = CSV_SEP;
         }
 
         @Override
@@ -42,7 +42,8 @@ public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>
                 int topNRanked = accumulator.size();
                 for (int x = 0; x < topNRanked; x++) {
                         head = accumulator.pollLast();
-                        outRanks += head.f1 + CSV_LIST_SEP + head.f2 + CSV_LIST_SEP;    //TODO ALSO COUNT ADDED
+                        if (x+1==topNRanked)  outRanks += head.f1 + CSV_SEP + head.f2;    //TODO ALSO COUNT ADDED
+                        else                  outRanks += head.f1 + CSV_SEP + head.f2+CSV_SEP ;    //TODO ALSO COUNT ADDED
                 }
                 //build the rank with the concatenated reasons ranked + starting common timestamp  rounded down to the midnight of the associated day
                 Long dayRoundedDownTs= Utils.roundTsDownMidnight(head.f0);
