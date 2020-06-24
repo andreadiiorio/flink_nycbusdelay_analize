@@ -7,13 +7,15 @@ import org.apache.flink.api.java.tuple.Tuple3;
 import java.util.*;
 
 
-public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>, TreeSet<Tuple3<Long, String, Long>>, Tuple2<Long, String>> {
+public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>, TreeSet<Tuple3<Long, String, Long>>, Tuple3<Long,Short, String>> {
         private int TOPN;
+        private short streamID;
         private String CSV_SEP;
 
-        public RankReasons(int TOPN,  String CSV_SEP) {
+        public RankReasons(int TOPN,Short streamID,  String CSV_SEP) {
                 this.TOPN=TOPN;
                 this.CSV_SEP = CSV_SEP;
+                this.streamID=streamID;
         }
 
         @Override
@@ -37,7 +39,7 @@ public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>
         }
 
         @Override
-        public Tuple2<Long, String> getResult(TreeSet<Tuple3<Long, String, Long>> accumulator) {
+        public Tuple3<Long,Short, String> getResult(TreeSet<Tuple3<Long, String, Long>> accumulator) {
                 //concat top reasons extracting the priorityQueue head multiple times
                 String outRanks = "";
                 Tuple3<Long, String, Long> head = null;
@@ -49,7 +51,7 @@ public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>
                 }
                 //build the rank with the concatenated reasons ranked + starting common timestamp  rounded down to the midnight of the associated day
                 Long dayRoundedDownTs= Utils.roundTsDownMidnight(head.f0);
-                return new Tuple2<>(dayRoundedDownTs, outRanks);
+                return new Tuple3<>(dayRoundedDownTs,streamID, outRanks);
 
         }
 
