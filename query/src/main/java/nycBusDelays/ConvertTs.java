@@ -8,6 +8,6 @@ import javax.xml.stream.FactoryConfigurationError;
 public class ConvertTs implements MapFunction<Tuple2<Long, String>, String> {
     @Override
     public String map(Tuple2<Long, String> value) {
-        return Utils.convertTs(value.f0, false)+","+value.f1;
+        return Utils.convertTs(value.f0, true)+","+value.f1;
     }
 }

@@ -17,25 +17,28 @@ import org.apache.flink.util.Collector;
 
 import javax.annotation.Nullable;
 import java.util.Iterator;
+import java.util.Properties;
 
 
 /**
  *
  */
 public class Query1 {
-    private static final String CSV_SEP = ",";
-    private static final String OUT_PATH = "csv1";
-    public static String HOSTNAME = "localhost";//"172.17.0.1";
-    public static int PORT = 5555;
-    public static Time WINDOW_SIZE = Time.hours(24);
-    private static int SINK_PARALLELISM = 1;
 
     public static void main(String[] args) throws Exception {
+        //init vars
+        final Properties prop = Utils.getUtils().getProperty();
+        final String CSV_SEP = prop.getProperty("CSV_SEP");
+        Time WINDOW_SIZE;
+        if (prop.containsKey("WIN_HOURS")) WINDOW_SIZE = Time.hours(Integer.parseInt(prop.getProperty("WIN_HOURS")));
+        else WINDOW_SIZE = Time.days(Integer.parseInt(prop.getProperty("WIN_DAYS")));
+
+
         long end,start=System.nanoTime();
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
         // get input data by connecting to the socket
-        DataStream<String> lines = env.socketTextStream(HOSTNAME, PORT, "\n", 1);
+        DataStream<String> lines = env.socketTextStream(prop.getProperty("HOSTNAME"), Integer.parseInt(prop.getProperty("PORT")), "\n", 1);
 
         //parse and extract timestamp into tuple of <timeStamp,boro,delayRecorded>
         DataStream<Tuple3<Long, String, Float>> delaysNeighboro = lines.map(new MapFunction<String, Tuple3<Long, String, Float>>() {
@@ -70,7 +73,7 @@ public class Query1 {
                         return new Tuple2<>(value1.f0, value1.f1 + CSV_SEP + value2.f1 );
                     }
                 });
-        out.map(new ConvertTs()).addSink(Utils.fileOutputSink(OUT_PATH)).setParallelism(SINK_PARALLELISM);
+        out.map(new ConvertTs()).addSink(Utils.fileOutputSink(prop.getProperty("OUT_PATH1"))).setParallelism(Integer.parseInt(prop.getProperty("SINK_PARALLELISM")));
         env.execute("Q1");
         end=System.nanoTime();
         System.out.println("elapsed: "+((double)(end-start))/1000000000);

@@ -109,7 +109,7 @@ def Query2(timeWindow):
         elif timeRangePMStart <= eventTime and eventTime <= timeRangePMEnd:
             if delay.reason not in rankPM: rankPM[delay.reason]=0
             rankPM[delay.reason]+=1
-        else:   discarded+=1;print(discarded,delay.occurredOn,delay.id,file=stderr)
+        else:   discarded+=1;#print(discarded,delay.occurredOn,delay.id,file=stderr)
     #sort and concat the top 3 reason 
     amCounts=list(rankAM.items())
     amCounts.sort(key=lambda t:t[1],reverse=True)
