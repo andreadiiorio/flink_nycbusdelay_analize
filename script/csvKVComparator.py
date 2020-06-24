@@ -69,15 +69,17 @@ def compare(csvOracle,csv1,notiFyDiffValsFunc=lambda x,y:x==y,notifyMissingOracl
     for rowK in commonKeys:
         oraclePairs,csv1Pairs=csvOracle[rowK],csv1[rowK]
         oracleSubGroupsIDs,csv1SubGroupsIDs=[i.groupName for i in oraclePairs],[i.groupName for i in csv1Pairs]
-        if len(oraclePairs)!=len(csv1Pairs):    print("different num of subGruops at key:",rowK,"oracle's subG: ",oracleSubGroupsID,"csv1 ones: ",csv1SubGroupsIDs,file=stderr)
+        if len(oraclePairs)!=len(csv1Pairs):    print("different num of subGruops at key:",rowK,"oracle's subG: ",oracleSubGroupsIDs,"csv1 ones: ",csv1SubGroupsIDs,file=stderr)
         #search for different values relative to common keys pairs
         for subGroup in oraclePairs:
             try: csv1SubGroupIdx=csv1SubGroupsIDs.index(subGroup.groupName)
             except Exception as e: print("not found",subGroup.groupName," in csv1 sub groups at key",rowK,file=stderr);errs+=1;continue
             for k,v in subGroup.pairs.items():
-                try: v1=csv1Pairs[csv1SubGroupIdx].pairs[k]
+                otherPairs=csv1Pairs[csv1SubGroupIdx].pairs
+                try: v1=otherPairs[k]
                 except Exception as e: 
-                    if notifyMissingOracleKV:  print("not found key",k,"in csv1 subgroups at row key",rowK,csv1Pairs[csv1SubGroupIdx],e,file=stderr)
+                    if notifyMissingOracleKV:  print("not found KV pair",(k,v),"in csv1 subgroups at row key",rowK,csv1Pairs[csv1SubGroupIdx],  \
+                            "same value with different key:",v in otherPairs.values() ,e,file=stderr)
                     errs+=1;continue
                 if v!=v1 and notiFyDiffValsFunc(v,v1):  print("different values:oracle,csv1",v,v1," at key",k,"rowKey",rowK,file=stderr)
         #search for subGruops/keypairs in csv1 and not in the oracle ones
@@ -86,9 +88,11 @@ def compare(csvOracle,csv1,notiFyDiffValsFunc=lambda x,y:x==y,notifyMissingOracl
                 try: oracleSubGroupIdx=oracleSubGroupsIDs.index(subGroup.groupName)
                 except Exception as e: print("not found",subGroup,"in oracles sub groups at key",rowK,file=stderr);errs;continue
                 for k,v in subGroup.pairs.items():
-                    try: v1=oraclePairs[oracleSubGroupIdx].pairs[k]
+                    otherPairs=oraclePairs[oracleSubGroupIdx].pairs
+                    try: v1=otherPairs[k]
                     except Exception as e:  
-                        print("not found key",k,"in oracle's sub groups at row key",rowK,oraclePairs[oracleSubGroupIdx],e,file=stderr)
+                        print("not found KV pair",(k,v),"in oracle's sub groups at row key",rowK,oraclePairs[oracleSubGroupIdx],\
+                                "same value with different key:",v in otherPairs.values(),e,file=stderr)
                         errs+=1;continue
     print("errs:",errs,"on",len(commonKeys))
 

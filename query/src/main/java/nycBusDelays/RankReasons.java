@@ -21,7 +21,9 @@ public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>
                 return new TreeSet<>(new Comparator<Tuple3<Long, String, Long>>() {
                         @Override
                         public int compare(Tuple3<Long, String, Long> o1, Tuple3<Long, String, Long> o2) {
-                                return Long.compare(o1.f2,o2.f2);
+                                int cmpCounts=Long.compare(o1.f2,o2.f2);
+                                if (cmpCounts==0)       return 1;       //keep duplicate values
+                                return cmpCounts;
                         }
                 });
 

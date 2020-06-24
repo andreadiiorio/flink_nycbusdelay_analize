@@ -37,7 +37,7 @@ public class Query2 {
     public static int TOPN = 3;
     public static String HOSTNAME = "localhost";//"172.17.0.1";
     public static int PORT = 5555;
-    public static Time WINDOW_SIZE = Time.days(7);
+    public static Time WINDOW_SIZE = Time.hours(24);
 
     public static void main(String[] args) throws Exception {
 
@@ -85,20 +85,10 @@ public class Query2 {
                     out.collect(new Tuple3<>(context.window().getStart(), tuple.f1, tuple.f2));
                 }
             });
+
             //get the topN reasons using a RedBlack tree struct obtaining tuples like <winStartTs, "top1stReason ,top2ndReason...">
             //also round timestamps to the midnight of their associated day for later join different timeRange streams
             DataStream<Tuple2<Long, String>> reasonsRanked = delayCounts.keyBy(0).timeWindow(WINDOW_SIZE).aggregate(new RankReasons(TOPN, CSV_SEP));
-
-
-            //TODO SCALABLE VERSION OF RANKING: pre ranking on sub key space -> final ranking on all partial results
-            //divide the key space for each time win rank with respect of groups of reasons
-            /*final int SUB_RANK_LEVEL=2;
-            reasonsRanked = delayCounts.keyBy(new KeySelector<Tuple3<Long, String, Long>, Tuple2<Long, Integer>>() {
-                @Override
-                public Tuple2<Long, Integer> getKey(Tuple3<Long, String, Long> value) throws Exception {
-                    return new Tuple2<>(value.f0, value.f1.hashCode() % SUB_RANK_LEVEL);
-                }
-            }).timeWindow(WINDOWSIZE).aggregate(PARTIAL RANK).keyBy(0).timeWindow(WINDOW_SIZE).aggregate(new RankReasons(TOPN, CSV_LIST_SEP));*/
 
             delayTimeRanges[i] = reasonsRanked; //save rank
         }
@@ -106,7 +96,7 @@ public class Query2 {
         //retrieve the ranked delays stream in the AM-PM time ranges
         delayReasonsAM = delayTimeRanges[0];
         delayReasonsPM = delayTimeRanges[1];
-//        delayReasonsAM.map(new MapFunction<Tuple2<Long, String>, String>() {
+//        delayReasonsPM.map(new MapFunction<Tuple2<Long, String>, String>() {
 //            @Override
 //            public String map(Tuple2<Long, String> value) throws Exception {
 //                return Utils.convertTs(value.f0,false)+value.f1;
@@ -117,13 +107,14 @@ public class Query2 {
                 .window(TumblingEventTimeWindows.of(WINDOW_SIZE)).apply(new CoGroupFunction<Tuple2<Long, String>, Tuple2<Long, String>, String>() {
                     @Override
                     public void coGroup(Iterable<Tuple2<Long, String>> am, Iterable<Tuple2<Long, String>> pm, Collector<String> out) throws Exception {
+
                         boolean amAvaible = am.iterator().hasNext(), pmAvaible = pm.iterator().hasNext();
                         String outTuple = "";
                         if (amAvaible)  outTuple =convertTs(am.iterator().next().f0, true) + CSV_SEP +
                                 "AM" + CSV_SEP+am.iterator().next().f1+CSV_SEP+"PM"+CSV_SEP;
                         else            {
                             out.collect(convertTs(pm.iterator().next().f0, true) +CSV_SEP
-                                    +"AM" + CSV_SEP + "PM" + CSV_SEP+pm.iterator().next());
+                                    +"AM" + CSV_SEP + "PM" + CSV_SEP+pm.iterator().next().f1);
                             return;
                         }
                         if (pmAvaible) outTuple += pm.iterator().next().f1;

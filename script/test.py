@@ -9,7 +9,9 @@ from os import environ as env
 from sys import stderr
 QUERY=1
 SLEEP_TIME,AWAKE_CYCLES_N=0.0088,50 #104,011132117 s
+WIN_DAYS=1
 if "QUERY" in env:      QUERY=int(env["QUERY"])
+if "WIN_DAYS" in env:   WIN_DAYS=int(env["WIN_DAYS"])
 if "SLEEP_TIME" in env: SLEEP_TIME=float(env["SLEEP_TIME"])
 
 SKIP_NULL_DELAY=False
@@ -124,8 +126,12 @@ csvFp=open(CSV_FNAME,newline="")
 csvIterator=reader(csvFp,delimiter=CSV_SEPARATOR)
 header=csvIterator.__next__()
 i=2
-WINDOW_SIZE=timedelta(days=7)#(hours=24)
-winStartDate=datetime.strptime("27-08-2015","%d-%m-%Y")
+WINDOW_SIZE=timedelta(hours=24)
+winStartDate=None
+if WIN_DAYS!=1: 
+    WINDOW_SIZE=timedelta(days=WIN_DAYS)
+    winStartDate=datetime.strptime("27-08-2015","%d-%m-%Y")
+
 timeWindow=list()   #hold events occurred in the given time range -> Tumbling window
 
 #named tuple to wrap main fields parsed from dataset
@@ -155,15 +161,17 @@ for fields in csvIterator:
     reason=reason.replace(" ","_")
 
     if winStartDate==None:   winStartDate=occurredOn.replace(hour=0, minute=0, second=0, microsecond=0)    #iter 0 
-    #tumbling window ended
+    
+    #tumbling window ended -> flush window resoult
     if occurredOn>winStartDate+WINDOW_SIZE:
         winStart=winStartDate.strftime("%d-%m-%Y")
         if QUERY==1:    print(winStart,Query1(timeWindow),sep=SEP)
         elif QUERY==2:  print(winStart,Query2(timeWindow),sep=SEP)
-        #prepare a new time window
         timeWindow.clear()
-        winStartDate=occurredOn.replace(hour=0, minute=0, second=0, microsecond=0)
-        #winStartDate+=WINDOW_SIZE
+        #prepare a new time window with next window slot that contain the new event
+        while occurredOn>winStartDate+WINDOW_SIZE:
+            winStartDate+=WINDOW_SIZE
+        winStartDate=winStartDate.replace(hour=0, minute=0, second=0, microsecond=0)
     timeWindow.append(BusDelays(occurredOn,boro,howLongDelayed,reason,id))
 
     #if i%AWAKE_CYCLES_N==0:sleep(SLEEP_TIME);    i+=1

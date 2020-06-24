@@ -70,6 +70,7 @@ public class Utils {
                 return this.f0+","+this.f1;
             }
         };
-        System.out.println(a);
+        String aa="ciao";
+        System.out.println(aa.hashCode());
     }
 }
