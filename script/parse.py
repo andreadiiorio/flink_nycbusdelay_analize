@@ -6,8 +6,9 @@ from datetime import datetime,timezone
 from csv import reader 
 from fractions import Fraction
 from os import environ as env
+from random import random
 QUERY=1
-SLEEP_TIME,AWAKE_CYCLES_N=0.0088,50 #104,011132117 s
+SLEEP_TIME,AWAKE_CYCLES_N=5.88,70 #104,011132117 s
 if "QUERY" in env:      QUERY=int(env["QUERY"])
 if "SLEEP_TIME" in env: SLEEP_TIME=float(env["SLEEP_TIME"])
 
@@ -95,7 +96,7 @@ for fields in csvIterator:
     elif QUERY==2:  print(occurredOn,reason)                
     
 
-    #if i%AWAKE_CYCLES_N==0:sleep(SLEEP_TIME);    i+=1
-
+    #if i%AWAKE_CYCLES_N==0:sleep(random()*2)
+    i+=1
 csvFp.close()
 
