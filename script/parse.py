@@ -1,4 +1,7 @@
-#School_Year;Busbreakdown_ID;Run_Type;Bus_No;Route_Number;Reason;Schools_Serviced;Occurred_On;Created_On;Boro;Bus_Company_Name;How_Long_Delayed;Number_Of_Students_On_The_Bus;Has_Contractor_Notified_Schools;Has_Contractor_Notified_Parents;Have_You_Alerted_OPT;Informed_On;Incident_Number;Last_Updated_On;Breakdown_or_Running_Late;School_Age_or_PreK
+#!/usr/bin/env python3
+#simple parsing module for nyc bus delay dataset
+#Override config with env vars: QUERY, SLOW_DOWN ,SLEEP_TIME, AWAKE_CYCLES_N 
+#fields School_Year;Busbreakdown_ID;Run_Type;Bus_No;Route_Number;Reason;Schools_Serviced;Occurred_On;Created_On;Boro;Bus_Company_Name;How_Long_Delayed;Number_Of_Students_On_The_Bus;Has_Contractor_Notified_Schools;Has_Contractor_Notified_Parents;Have_You_Alerted_OPT;Informed_On;Incident_Number;Last_Updated_On;Breakdown_or_Running_Late;School_Age_or_PreK
 #perf time DELL 8,781169884
 from time import sleep
 from calendar import timegm
@@ -6,13 +9,20 @@ from datetime import datetime,timezone
 from csv import reader 
 from fractions import Fraction
 from os import environ as env
+from sys import stderr
 from random import random
+
+#configuration overridable via env vars
 QUERY=1
-SLEEP_TIME,AWAKE_CYCLES_N=5.88,70 #104,011132117 s
+SLEEP_TIME,AWAKE_CYCLES_N=0.1,96
+SKIP_NULL_DELAY=True
+SLOW_DOWN=True
 if "QUERY" in env:      QUERY=int(env["QUERY"])
 if "SLEEP_TIME" in env: SLEEP_TIME=float(env["SLEEP_TIME"])
+if "AWAKE_CYCLES_N" in env: AWAKE_CYCLES_N=int(env["AWAKE_CYCLES_N"])
+if "SKIP_NULL_DELAY" in env and "f" in env["SKIP_NULL_DELAY"].lower(): SKIP_NULL_DELAY=False
+if "SLOW_DOWN" in env and "f" in env["SLOW_DOWN"].lower(): SLOW_DOWN=False
 
-SKIP_NULL_DELAY=False
 CSV_FNAME="bus-breakdown-and-delays.csv"
 CSV_SEPARATOR=";"
 
@@ -72,12 +82,13 @@ def cleanDelay(delayStr,startTime=None):
 csvFp=open(CSV_FNAME,newline="")
 csvIterator=reader(csvFp,delimiter=CSV_SEPARATOR)
 header=csvIterator.__next__()
-i=1
+i=0
 oldTS=0
 for fields in csvIterator:
     #parse main fields and skip if some of them make the execution of the query imposible
     occurredOn,createdOn,boro,howLongDelayed,reason=fields[7],fields[8],fields[9],fields[11],fields[5]
-    #TODO ASK if SKIP_NULL_DELAY and (len(howLongDelayed)==0 or howLongDelayed=="0"):   continue
+    i+=1
+    if SKIP_NULL_DELAY and (len(howLongDelayed)==0 or howLongDelayed=="0") and QUERY==1:         continue
     #oldDelayStr=howLongDelayed
     try: howLongDelayed=cleanDelay(howLongDelayed,occurredOn)
     except: 
@@ -94,9 +105,7 @@ for fields in csvIterator:
     #print("occurredOn:",occurredOn,"boro",boro,"howLongDelayed",howLongDelayed,"reason",reason)
     if QUERY==1:    print(occurredOn,boro,howLongDelayed)
     elif QUERY==2:  print(occurredOn,reason)                
-    
-
-    #if i%AWAKE_CYCLES_N==0:sleep(random()*2)
-    i+=1
+    #slow down the parsing to simulate not continuos records arrival to the DSP app
+    if SLOW_DOWN and i%AWAKE_CYCLES_N==0:   sleep(random()*SLEEP_TIME) #( random()*2)
 csvFp.close()
 

@@ -1,5 +1,6 @@
 package nycBusDelays;
 
+import org.apache.commons.math3.analysis.function.Sin;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.tuple.Tuple;
@@ -7,6 +8,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
@@ -32,16 +34,18 @@ public class Query1 {
         Time WINDOW_SIZE;
         if (prop.containsKey("WIN_HOURS")) WINDOW_SIZE = Time.hours(Integer.parseInt(prop.getProperty("WIN_HOURS")));
         else WINDOW_SIZE = Time.days(Integer.parseInt(prop.getProperty("WIN_DAYS")));
-
+        boolean FineTuneParallelism=false;
+        if (Boolean.parseBoolean(prop.getProperty("FineTuneParallelism")))  FineTuneParallelism=true;
 
         long end,start=System.nanoTime();
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+        env.setParallelism(1);
         // get input data by connecting to the socket
         DataStream<String> lines = env.socketTextStream(prop.getProperty("HOSTNAME"), Integer.parseInt(prop.getProperty("PORT")), "\n", 1);
 
         //parse and extract timestamp into tuple of <timeStamp,boro,delayRecorded>
-        DataStream<Tuple3<Long, String, Float>> delaysNeighboro = lines.map(new MapFunction<String, Tuple3<Long, String, Float>>() {
+        SingleOutputStreamOperator <Tuple3<Long, String, Float>> delaysNeighboro = lines.map(new MapFunction<String, Tuple3<Long, String, Float>>() {
             @Override
             public Tuple3<Long, String, Float> map(String line) throws Exception {
 
@@ -49,9 +53,10 @@ public class Query1 {
                 return new Tuple3(Long.valueOf(fields[0]), fields[1], Float.valueOf(fields[2]));
             } //extract timestamp from first field
         }).assignTimestampsAndWatermarks(new WatermarkingStrict());
+        if (FineTuneParallelism) delaysNeighboro.setParallelism(Integer.parseInt(prop.getProperty("q1_map1_parallelism")));
 
         ///aggregate delays per boro in averages from EventTime Windows -> out: <startTS,"boro avg(of boro in [startTS,startTS+winSize)" )
-        DataStream<Tuple2<Long, String>> delaysNeighboroAverges = delaysNeighboro.keyBy(1).timeWindow(WINDOW_SIZE)
+        SingleOutputStreamOperator<Tuple2<Long, String>> delaysNeighboroAverges = delaysNeighboro.keyBy(1).timeWindow(WINDOW_SIZE)
                 .aggregate(new AverageAggregate(),new ProcessWindowFunction<Double, Tuple2<Long, String>, Tuple, TimeWindow>() {
                     //combine the average with window start times
                     @Override
@@ -63,17 +68,20 @@ public class Query1 {
                         out.collect(new Tuple2<>(startTimeOfWindow, boroKey + CSV_SEP + avgOfBoro ));
                     }
                 });
+        if(FineTuneParallelism ) delaysNeighboroAverges.setParallelism(Integer.parseInt(prop.getProperty("q1_aggregate_parallelism")));
         //TODO FLINK WINDOWS START TIME FKK!! delaysNeighboroAverges.map(new ConvertTs()).print().setParallelism(1);
         //group output neighboro's averages by starting timeStamp
         //reduce by rewindowing
-        DataStream<Tuple2<Long, String>> out = delaysNeighboroAverges.keyBy(0)
+        SingleOutputStreamOperator<Tuple2<Long, String>> out = delaysNeighboroAverges.keyBy(0)
                 .timeWindow(WINDOW_SIZE).reduce(new ReduceFunction<Tuple2<Long, String>>() {
                     @Override
                     public Tuple2<Long, String> reduce(Tuple2<Long, String> value1, Tuple2<Long, String> value2) throws Exception {
                         return new Tuple2<>(value1.f0, value1.f1 + CSV_SEP + value2.f1 );
                     }
                 });
-        out.map(new ConvertTs()).addSink(Utils.fileOutputSink(prop.getProperty("OUT_PATH1"))).setParallelism(Integer.parseInt(prop.getProperty("SINK_PARALLELISM")));
+        if (FineTuneParallelism) out.setParallelism(Integer.parseInt(prop.getProperty("q1_win_mergeAvgs")));
+        out.map(new ConvertTs()).addSink(Utils.fileOutputSink(prop.getProperty("OUT_PATH1")))
+                .setParallelism(Integer.parseInt(prop.getProperty("SINK_PARALLELISM")));
         env.execute("Q1");
         end=System.nanoTime();
         System.out.println("elapsed: "+((double)(end-start))/1000000000);

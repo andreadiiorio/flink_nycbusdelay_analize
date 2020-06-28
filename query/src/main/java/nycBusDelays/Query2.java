@@ -40,20 +40,23 @@ public class Query2 {
         Time WINDOW_SIZE;
         if (prop.containsKey("WIN_HOURS")) WINDOW_SIZE = Time.hours(Integer.parseInt(prop.getProperty("WIN_HOURS")));
         else WINDOW_SIZE = Time.days(Integer.parseInt(prop.getProperty("WIN_DAYS")));
-
+        boolean FineTuneParallelism=false;
+        if (Boolean.parseBoolean(prop.getProperty("FineTuneParallelism")))  FineTuneParallelism=true;
         long end, start = System.nanoTime();
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+        env.setParallelism(1);
         // get input data by connecting to the socket
         DataStream<String> lines = env.socketTextStream(prop.getProperty("HOSTNAME"), Integer.parseInt(prop.getProperty("PORT")), "\n", 1);
         //parse fields and assign timestamp
-        DataStream<Tuple2<Long, String>> delayReasons = lines.map(new MapFunction<String, Tuple2<Long, String>>() {
+        SingleOutputStreamOperator<Tuple2<Long, String>> delayReasons = lines.map(new MapFunction<String, Tuple2<Long, String>>() {
             @Override
             public Tuple2<Long, String> map(String line) throws Exception {
                 String[] fields = line.split("\\s");                            //"occurredOn","reason"
                 return new Tuple2<>(Long.valueOf(fields[0]), fields[1]);
             }
         }).assignTimestampsAndWatermarks(new WatermarkingStrict());
+        if (FineTuneParallelism) delayReasons.setParallelism(Integer.parseInt(prop.getProperty("q2_map_parallelism")));
         //separate delays information with respect to the specified time ranges (AM PM)
         DataStream<Tuple2<Long, String>> delayReasonsAM =
                 delayReasons.filter(new FilterTimeRanges(prop.getProperty("AM_START"), prop.getProperty("AM_END")));
@@ -85,10 +88,12 @@ public class Query2 {
                 }
             });
 
+            if (FineTuneParallelism) delayCounts.setParallelism(Integer.parseInt(prop.getProperty("q2_count")));
             //get the topN reasons using a RedBlack tree struct obtaining tuples like <winStartTs, "top1stReason ,top2ndReason...">
             //also round timestamps to the midnight of their associated day for later join different timeRange streams
-            DataStream<Tuple2<Long, String>> reasonsRanked = delayCounts.keyBy(0).timeWindow(WINDOW_SIZE)
+            SingleOutputStreamOperator<Tuple2<Long, String>> reasonsRanked = delayCounts.keyBy(0).timeWindow(WINDOW_SIZE)
                     .aggregate(new RankReasons(Integer.parseInt(prop.getProperty("TOPN")), CSV_SEP));
+            if (FineTuneParallelism) reasonsRanked.setParallelism(Integer.parseInt(prop.getProperty("q2_rank")));
             delayTimeRanges[i] = reasonsRanked; //save rank
         }
 
