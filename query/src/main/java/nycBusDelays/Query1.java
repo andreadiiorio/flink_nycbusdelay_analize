@@ -8,9 +8,11 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
+import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.api.windowing.time.Time;
@@ -21,10 +23,6 @@ import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.Properties;
 
-
-/**
- *
- */
 public class Query1 {
 
     public static void main(String[] args) throws Exception {
@@ -52,7 +50,9 @@ public class Query1 {
                 String[] fields = line.split("\\s");                            //"occurredOn","boro","howLongDelayed"return null;
                 return new Tuple3(Long.valueOf(fields[0]), fields[1], Float.valueOf(fields[2]));
             } //extract timestamp from first field
-        }).assignTimestampsAndWatermarks(new WatermarkingStrict());
+        });
+        if (FineTuneParallelism) delaysNeighboro.setParallelism(Integer.parseInt(prop.getProperty("q1_map1_parallelism")));
+        delaysNeighboro= delaysNeighboro.assignTimestampsAndWatermarks(new AscendingWatermarking());
         if (FineTuneParallelism) delaysNeighboro.setParallelism(Integer.parseInt(prop.getProperty("q1_map1_parallelism")));
 
         ///aggregate delays per boro in averages from EventTime Windows -> out: <startTS,"boro avg(of boro in [startTS,startTS+winSize)" )
@@ -69,19 +69,23 @@ public class Query1 {
                     }
                 });
         if(FineTuneParallelism ) delaysNeighboroAverges.setParallelism(Integer.parseInt(prop.getProperty("q1_aggregate_parallelism")));
-        //TODO FLINK WINDOWS START TIME FKK!! delaysNeighboroAverges.map(new ConvertTs()).print().setParallelism(1);
         //group output neighboro's averages by starting timeStamp
         //reduce by rewindowing
-        SingleOutputStreamOperator<Tuple2<Long, String>> out = delaysNeighboroAverges.keyBy(0)
-                .timeWindow(WINDOW_SIZE).reduce(new ReduceFunction<Tuple2<Long, String>>() {
+        SingleOutputStreamOperator<Tuple2<Long, String>> out = delaysNeighboroAverges
+                .timeWindowAll(WINDOW_SIZE).reduce(new ReduceFunction<Tuple2<Long, String>>() {
                     @Override
                     public Tuple2<Long, String> reduce(Tuple2<Long, String> value1, Tuple2<Long, String> value2) throws Exception {
                         return new Tuple2<>(value1.f0, value1.f1 + CSV_SEP + value2.f1 );
                     }
                 });
         if (FineTuneParallelism) out.setParallelism(Integer.parseInt(prop.getProperty("q1_win_mergeAvgs")));
-        out.map(new ConvertTs()).addSink(Utils.fileOutputSink(prop.getProperty("OUT_PATH1")))
-                .setParallelism(Integer.parseInt(prop.getProperty("SINK_PARALLELISM")));
+        //present the output and put into file steram sink
+        SingleOutputStreamOperator<String> outTsConverted= out.map(new ConvertTs());
+        if(FineTuneParallelism) outTsConverted.setParallelism(Integer.parseInt(prop.getProperty("SINK_PARALLELISM")));
+        //DataStreamSink<String> sink = outTsConverted.addSink(Utils.fileOutputSink(prop.getProperty("OUT_PATH1")));
+        DataStreamSink<String> sink = outTsConverted.addSink(Utils.fileOutputSink(prop.getProperty("OUT_PATH1")));
+        if(FineTuneParallelism) sink.setParallelism(Integer.parseInt(prop.getProperty("SINK_PARALLELISM")));
+
         env.execute("Q1");
         end=System.nanoTime();
         System.out.println("elapsed: "+((double)(end-start))/1000000000);
@@ -89,6 +93,13 @@ public class Query1 {
 
 
 
+    private static class AscendingWatermarking extends AscendingTimestampExtractor<Tuple3<Long, String, Float>> {
+
+        @Override
+        public long extractAscendingTimestamp(Tuple3<Long, String, Float> element) {
+            return element.f0;
+        }
+    }
     /**
      * Strict watermarking generation -> a watermark produced after each encountered element
      */

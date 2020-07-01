@@ -10,9 +10,12 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
+import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor;
+import org.apache.flink.streaming.api.functions.windowing.ProcessAllWindowFunction;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
@@ -40,8 +43,8 @@ public class Query2 {
         Time WINDOW_SIZE;
         if (prop.containsKey("WIN_HOURS")) WINDOW_SIZE = Time.hours(Integer.parseInt(prop.getProperty("WIN_HOURS")));
         else WINDOW_SIZE = Time.days(Integer.parseInt(prop.getProperty("WIN_DAYS")));
-        boolean FineTuneParallelism=false;
-        if (Boolean.parseBoolean(prop.getProperty("FineTuneParallelism")))  FineTuneParallelism=true;
+        boolean FineTuneParallelism = false;
+        if (Boolean.parseBoolean(prop.getProperty("FineTuneParallelism"))) FineTuneParallelism = true;
         long end, start = System.nanoTime();
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
@@ -55,8 +58,11 @@ public class Query2 {
                 String[] fields = line.split("\\s");                            //"occurredOn","reason"
                 return new Tuple2<>(Long.valueOf(fields[0]), fields[1]);
             }
-        }).assignTimestampsAndWatermarks(new WatermarkingStrict());
+        });
         if (FineTuneParallelism) delayReasons.setParallelism(Integer.parseInt(prop.getProperty("q2_map_parallelism")));
+        delayReasons = delayReasons.assignTimestampsAndWatermarks( new AscendingWatermarking());
+        if (FineTuneParallelism) delayReasons.setParallelism(Integer.parseInt(prop.getProperty("q2_map_parallelism")));
+
         //separate delays information with respect to the specified time ranges (AM PM)
         DataStream<Tuple2<Long, String>> delayReasonsAM =
                 delayReasons.filter(new FilterTimeRanges(prop.getProperty("AM_START"), prop.getProperty("AM_END")));
@@ -80,20 +86,20 @@ public class Query2 {
                 public Tuple3<Long, String, Long> reduce(Tuple3<Long, String, Long> value1, Tuple3<Long, String, Long> value2) throws Exception {
                     return new Tuple3<>(value1.f0, value1.f1, value1.f2 + value2.f2);
                 }
-            }, new ProcessWindowFunction<Tuple3<Long, String, Long>, Tuple3<Long, String, Long>, Tuple, TimeWindow>() {
-                @Override
-                public void process(Tuple key, Context context, Iterable<Tuple3<Long, String, Long>> elements, Collector<Tuple3<Long, String, Long>> out) throws Exception {
-                    Tuple3<Long, String, Long> tuple = elements.iterator().next();
-                    out.collect(new Tuple3<>(context.window().getStart(), tuple.f1, tuple.f2));
-                }
             });
-
             if (FineTuneParallelism) delayCounts.setParallelism(Integer.parseInt(prop.getProperty("q2_count")));
+
             //get the topN reasons using a RedBlack tree struct obtaining tuples like <winStartTs, "top1stReason ,top2ndReason...">
-            //also round timestamps to the midnight of their associated day for later join different timeRange streams
-            SingleOutputStreamOperator<Tuple2<Long, String>> reasonsRanked = delayCounts.keyBy(0).timeWindow(WINDOW_SIZE)
-                    .aggregate(new RankReasons(Integer.parseInt(prop.getProperty("TOPN")), CSV_SEP));
-            if (FineTuneParallelism) reasonsRanked.setParallelism(Integer.parseInt(prop.getProperty("q2_rank")));
+            //also round timestamps to the midnight of their associated day for later outer join different timeRange streams
+            SingleOutputStreamOperator<Tuple2<Long, String>> reasonsRanked = delayCounts.timeWindowAll(WINDOW_SIZE)
+                    .aggregate(new RankReasons(Integer.parseInt(prop.getProperty("TOPN")), CSV_SEP),
+                            new ProcessAllWindowFunction<Tuple2<Long, String>, Tuple2<Long, String>, TimeWindow>() {    //initial timestamp <= winStart down to 00:00
+                                @Override
+                                public void process(Context context, Iterable<Tuple2<Long, String>> elements, Collector<Tuple2<Long, String>> out) throws Exception {
+                                    out.collect(new Tuple2<>(Utils.roundTsDownMidnight(context.window().getStart()), elements.iterator().next().f1));
+                                }
+                            });
+            //if (FineTuneParallelism) reasonsRanked.setParallelism(Integer.parseInt(prop.getProperty("q2_rank")));
             delayTimeRanges[i] = reasonsRanked; //save rank
         }
 
@@ -145,6 +151,12 @@ public class Query2 {
         }
     }
 
+    static class AscendingWatermarking extends AscendingTimestampExtractor<Tuple2<Long, String>> {
+        @Override
+        public long extractAscendingTimestamp(Tuple2<Long, String> element) {
+            return element.f0;
+        }
+    }
     static class WatermarkingStrict implements AssignerWithPunctuatedWatermarks<Tuple2<Long, String>> {
 
         @Nullable

@@ -48,8 +48,8 @@ public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>
                         else                  outRanks += head.f1 + CSV_SEP + head.f2+CSV_SEP ;    //TODO ALSO COUNT ADDED
                 }
                 //build the rank with the concatenated reasons ranked + starting common timestamp  rounded down to the midnight of the associated day
-                Long dayRoundedDownTs= Utils.roundTsDownMidnight(head.f0);
-                return new Tuple2<>(dayRoundedDownTs, outRanks);
+                //TODO OLDLong dayRoundedDownTs= Utils.roundTsDownMidnight(head.f0);
+                return new Tuple2<>(head.f0, outRanks);
 
         }
 

@@ -12,6 +12,8 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: org.scala-lang:scala-library:2.11.12" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: com.twitter:chill-java:0.7.6" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.scala-lang:scala-library:2.11.12" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.twitter:chill-java:0.7.6" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: org.apache.flink:flink-java:1.10.0" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: org.apache.flink:flink-core:1.10.0" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: org.apache.flink:flink-annotations:1.10.0" level="project" />
