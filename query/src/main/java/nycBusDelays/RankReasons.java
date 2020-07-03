@@ -9,8 +9,7 @@ import java.util.*;
 /**
  * Flink Aggregation function to rank a stream of tuple containing a key and a count value
  * rolling ranking using the red black tree based struct TreeSet costrained at fixed size (size of rank=k)
- * so each insert cost O(log k)
- * TOP K ranking in O(n log(k))
+ * so each insert cost O(log k) -> TOP K ranking in O(n log(k))
  */
 public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>, TreeSet<Tuple3<Long, String, Long>>, Tuple2<Long, String>> {
         private int TOPN;
@@ -52,7 +51,6 @@ public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>
                         if (x+1==topNRanked)  outRanks += head.f1 + CSV_SEP + head.f2;
                         else                  outRanks += head.f1 + CSV_SEP + head.f2+CSV_SEP ;
                 }
-                //build the rank with the concatenated reasons ranked + starting common timestamp  rounded down to the midnight of the associated day
                 return new Tuple2<>(head.f0, outRanks);
 
         }

@@ -14,7 +14,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 public class Utils {
-    ///Properties
+    ///Properties into singleton
     private static Properties properties=null;
     private static Utils utils;
     private Utils(){}
@@ -34,6 +34,12 @@ public class Utils {
     private static final DateTimeFormatter dateStrFormatterDayGranularity=DateTimeFormatter.ofPattern("dd-MM-yyyy");
     private static final DateTimeFormatter dateStrFormatter=DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
 
+    /**
+     * convert a timestamp a to a formatted string
+     * @param timeStamp
+     * @param dayGranularity    if true return a formatted string with day precision
+     * @return
+     */
     public static String convertTs(Long timeStamp,boolean dayGranularity) {    //TimeStamp -> string
         //if given dayGranularity returned string indicating the day of the timestamp, otherwise use a seconds granularity
         LocalDateTime date=LocalDateTime.ofInstant(Instant.ofEpochMilli(timeStamp),ZoneOffset.UTC); //nyc utc offset already inserted at the source
@@ -52,7 +58,7 @@ public class Utils {
         return midnight.toInstant(ZoneOffset.UTC).toEpochMilli();
     }
 
-    //flink quick sinks
+    //flink file write sinks
     public static <T> StreamingFileSink<T> fileOutputSink(String outPath){
 
         return  StreamingFileSink.forRowFormat(new Path(outPath),new SimpleStringEncoder<T>("UTF-8"))
@@ -63,13 +69,5 @@ public class Utils {
                                 .withMaxPartSize(1024 * 1024 * 1024)
                                 .build())
                 .build();
-    }
-    public static void main(String[] args) throws Exception {
-        long ts=1441092540000L;
-        System.out.println(convertTs(ts,true));
-        System.out.println(convertTs(ts,false));
-        System.out.println(convertTs(roundTsDownMidnight(ts),true));
-
-
     }
 }

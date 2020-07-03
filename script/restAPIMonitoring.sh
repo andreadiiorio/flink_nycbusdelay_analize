@@ -1,5 +1,5 @@
 #!/bin/bash
-#developped by Andr3a Di Iorio
+#developped by Andrea Di Iorio
 #continuosly control the throughput of a flink application with the Flink REST API.
 #Supported parallelism and sub task level monitoring. monitor of each [chained]subtask will be written to a separate file in /tmp.
 #tune monitoring with ENV VARS: SUB_TASK_LEVEL_POLL-> true for granularity of subtask, POLLING-> polling interval of rest apis,  PARALLELISM -> at env level passed to flink FINE_TUNE_PARALLELISM
