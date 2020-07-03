@@ -1,5 +1,4 @@
-#School_Year;Busbreakdown_ID;Run_Type;Bus_No;Route_Number;Reason;Schools_Serviced;Occurred_On;Created_On;Boro;Bus_Company_Name;How_Long_Delayed;Number_Of_Students_On_The_Bus;Has_Contractor_Notified_Schools;Has_Contractor_Notified_Parents;Have_You_Alerted_OPT;Informed_On;Incident_Number;Last_Updated_On;Breakdown_or_Running_Late;School_Age_or_PreK
-#perf time DELL 8,781169884
+#oracle to test the queries
 from time import sleep
 from collections import namedtuple 
 from datetime import datetime,timezone,timedelta,time
@@ -27,7 +26,7 @@ def cleanDelay(delayStr,startTime=None):
 
     if delayStr.isdigit():  return int(delayStr)    #trivial delay expressed in minutes num only
     delay=delayStr.lower()
-    #end delay expressed as end time like "est.*HH:MMam/pm" TODO 2 LINES WITH DATE TIME INSTEAD OF DELAY TODO REMOVE...
+    #end delay expressed as end time like "est.*HH:MMam/pm"
     if ":" in delay and "est" in delay: 
         startConclusionTimeDelay,endConclusionTimeDelay=0,delay.find("m")
         for c in range(len(delay)): #search for the start of end hour sub string
@@ -118,8 +117,6 @@ def Query2(timeWindow):
     pmCounts.sort(key=lambda t:t[1],reverse=True)
 
     out+="AM"+SEP+listToStr(amCounts[:3])+SEP+"PM"+SEP+listToStr(pmCounts[:3])
-    #TODO DEBUG CHECK
-    #if len(amCounts)+len(pmCounts)<5: print(len(timeWindow),out,timeWindow[0].occurredOn,timeWindow[-1].id,discarded,file=stderr)
     return out
 
 csvFp=open(CSV_FNAME,newline="")
@@ -140,16 +137,11 @@ BusDelays=namedtuple("BusDelays",["occurredOn","boro","howLongDelayed","reason",
 err=None
 for fields in csvIterator:
     id,occurredOn,createdOn,boro,howLongDelayed,reason=fields[1],fields[7],fields[8],fields[9],fields[11],fields[5]
-    #TODO ASK if SKIP_NULL_DELAY and (len(howLongDelayed)==0 or howLongDelayed=="0"):   continue
-    #oldDelayStr=howLongDelayed
     try: howLongDelayed=cleanDelay(howLongDelayed,occurredOn)
     except: 
         if QUERY==1:    err="delay"
-    #except Exception as e:         print("CORRUPTED:",howLongDelayed, e) #CORRUPTED DELAYS LINES: 105299,144  83793,146
-    #print(oldDelayStr,"->",howLongDelayed)
     if len(boro)==0 and QUERY==1:       err="boro"
     if len(reason)==0 and QUERY==2:     err="reason"
-    #TODO NULL REASON at tuple with ids: 1365205    1365164
     if err!=None:
         print(id,occurredOn,createdOn,boro,howLongDelayed,reason,i,err,file=stderr)
         err=None

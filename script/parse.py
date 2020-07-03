@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 #simple parsing module for nyc bus delay dataset
 #Override config with env vars: QUERY, SLOW_DOWN ,SLEEP_TIME, AWAKE_CYCLES_N 
-#fields School_Year;Busbreakdown_ID;Run_Type;Bus_No;Route_Number;Reason;Schools_Serviced;Occurred_On;Created_On;Boro;Bus_Company_Name;How_Long_Delayed;Number_Of_Students_On_The_Bus;Has_Contractor_Notified_Schools;Has_Contractor_Notified_Parents;Have_You_Alerted_OPT;Informed_On;Incident_Number;Last_Updated_On;Breakdown_or_Running_Late;School_Age_or_PreK
-#perf time DELL 8,781169884
 from time import sleep
 from calendar import timegm
 from datetime import datetime,timezone
@@ -30,11 +28,12 @@ parseTimeStrToTimestamp=lambda s:int(datetime.strptime(s,"%Y-%m-%dT%H:%M:%S.%f")
 def cleanDelay(delayStr,startTime=None):
     #clean delayStr -> return delay ammount in minutes
     #if multiple num field are separated by "-" or "/" -> average them, otherwise sum
-    #use startTime for delayStr that indicate the end time of the delay
+    #supported delay string with time units (hours,minutes)
+    #use startTime for delayStr that indicate the end time of the delay ( for delays indicated as end time from the occurred on field
 
     if delayStr.isdigit():  return int(delayStr)    #trivial delay expressed in minutes num only
     delay=delayStr.lower()
-    #end delay expressed as end time like "est.*HH:MMam/pm" TODO 2 LINES WITH DATE TIME INSTEAD OF DELAY TODO REMOVE...
+    #end delay expressed as end time like "est.*HH:MMam/pm"
     if ":" in delay and "est" in delay: 
         startConclusionTimeDelay,endConclusionTimeDelay=0,delay.find("m")
         for c in range(len(delay)): #search for the start of end hour sub string

@@ -6,7 +6,7 @@ import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple4;
 
 /**
- * minimal aggregate function to compute the average on
+ * minimal aggregate function to compute the average value of the third field of a stream of tuple
  */
 public class AverageAggregate
         implements AggregateFunction<Tuple3<Long, String, Float>, Tuple2<Double, Long>, Double> {

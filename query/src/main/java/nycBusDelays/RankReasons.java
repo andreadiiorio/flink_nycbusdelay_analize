@@ -6,7 +6,12 @@ import org.apache.flink.api.java.tuple.Tuple3;
 
 import java.util.*;
 
-
+/**
+ * Flink Aggregation function to rank a stream of tuple containing a key and a count value
+ * rolling ranking using the red black tree based struct TreeSet costrained at fixed size (size of rank=k)
+ * so each insert cost O(log k)
+ * TOP K ranking in O(n log(k))
+ */
 public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>, TreeSet<Tuple3<Long, String, Long>>, Tuple2<Long, String>> {
         private int TOPN;
         private String CSV_SEP;
@@ -44,11 +49,10 @@ public class RankReasons implements AggregateFunction<Tuple3<Long, String, Long>
                 int topNRanked = accumulator.size();
                 for (int x = 0; x < topNRanked; x++) {
                         head = accumulator.pollLast();
-                        if (x+1==topNRanked)  outRanks += head.f1 + CSV_SEP + head.f2;    //TODO ALSO COUNT ADDED
-                        else                  outRanks += head.f1 + CSV_SEP + head.f2+CSV_SEP ;    //TODO ALSO COUNT ADDED
+                        if (x+1==topNRanked)  outRanks += head.f1 + CSV_SEP + head.f2;
+                        else                  outRanks += head.f1 + CSV_SEP + head.f2+CSV_SEP ;
                 }
                 //build the rank with the concatenated reasons ranked + starting common timestamp  rounded down to the midnight of the associated day
-                //TODO OLDLong dayRoundedDownTs= Utils.roundTsDownMidnight(head.f0);
                 return new Tuple2<>(head.f0, outRanks);
 
         }

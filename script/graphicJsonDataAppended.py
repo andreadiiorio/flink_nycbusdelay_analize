@@ -3,10 +3,11 @@
 parse json data appended to a single file (e.g. rest api monitoring polling process writing to a tmp file)
 expected a series of json list containing o costant num of objects , each with an id field and other fields with the data (1 selectable)
 """
-from json import loads
+from json import loads,dump
 from re import finditer
 from sys import argv,stderr
-from os import mkdir
+from os import mkdir,environ
+from statistics import mean
 def parseJsonLists(jsonsListsConcatted,SEEK_FIRST_OCCUR="",SUB_SEQUENT_TIMESTAMP=True,SAVE_HEADER_OBJ=True):
     """
     parse json lists present in jsonsListsConcatted
@@ -20,7 +21,7 @@ def parseJsonLists(jsonsListsConcatted,SEEK_FIRST_OCCUR="",SUB_SEQUENT_TIMESTAMP
     JSON_LIST_SEP="\]\["
     lists=list()            #all json lists founded in jsonsListsConcatted
     if SEEK_FIRST_OCCUR!="":
-        startOffset=jsonsListsConcatted.index(SEEK_FIRST_OCCUR)+1
+        startOffset=max(0,jsonsListsConcatted.find(SEEK_FIRST_OCCUR)+1)
         #print(jsonsListsConcatted[startOffset:startOffset+11],startOffset)
         lists.append(jsonsListsConcatted[:startOffset])
         jsonsListsConcatted=jsonsListsConcatted[startOffset:]
@@ -36,11 +37,13 @@ def parseJsonLists(jsonsListsConcatted,SEEK_FIRST_OCCUR="",SUB_SEQUENT_TIMESTAMP
             list_start_idx=idx.end()-1  #update to the next list
             if SUB_SEQUENT_TIMESTAMP:   #append timestamp at the end of the new list
                 nextIdx=indexes[i+1]
-                l.append(float(loads(jsonsListsConcatted[list_start_idx:nextIdx.start()+1])[0].replace(",",".")))
+                ts=jsonsListsConcatted[list_start_idx:nextIdx.start()+1]
                 list_start_idx=nextIdx.end()-1  #update to the next list
+                #print(list_start_idx,ts)
+                l.append(float(loads(ts)[0].replace(",",".")))
 
             if len(l)>0:                    lists.append(l)              #discard emtpy lists
-        except Exception as e: print("corrupted json at idx:",i,e,list_start_idx,idx.start()+1)
+        except Exception as e: print("corrupted json at idx:",i,e,list_start_idx,ts,idx.start()+1);
     return lists
 
 def extractDataFields(lists,dataFieldName,ID_FIELD_NAME="id",TIMESTAMP=True):
@@ -72,7 +75,7 @@ def plot(x_points,y_points,figureN,name="",dirTarget="",savePoints=False):
     plt.plot(x_points,y_points)
     #explict set axis points
     #plt.xaxis(x_points)
-    plt.yaxis(y_points)
+    #plt.yticks(y_points)
     plt.ylabel("records / seconds")
     plt.xlabel("seconds")
     #plt.suptitle(name)
@@ -109,17 +112,16 @@ def _uniq_points_y(points):         #keep only the different points for better g
     return out
 
 if __name__=="__main__":
-    if len(argv)<2:    print("usage: jsonsListsConcatted filename, [STEP data], [initialPattern], [data field] [graphs save dir]",__doc__,file=stderr); exit(1)
-    STEP=0.01
-    if len(argv)>=3:    STEP=float(argv[2])
+    if len(argv)<2:    print("usage: jsonsListsConcatted filename, [initialPattern], [data field] [graphs save dir]",__doc__,file=stderr); exit(1)
     initialPattern="}["
-    if len(argv)>=4:    initialPattern=argv[3]
-    dataFieldName="avg"
-    if len(argv)>=5:    dataFieldName=argv[4]
+    if len(argv)>=3:    initialPattern=argv[2]
+    dataFieldName="value"
+    if len(argv)>=4:    dataFieldName=argv[3]
     #parse the concatted json list in the file
     lists=parseJsonLists(open(argv[1]).read(),initialPattern)   #expected timestamp after each json list
     #extract json data log header as the first element in the list
-    header=loads(lists[0])["name"]
+    try: header=loads(lists[0])["name"]
+    except: header="missing"
     lists=lists[1:]
     #extract data field in each list's obj, gather in dict of lists
     dataLists=extractDataFields(lists,dataFieldName)    #appended timestamp expected
@@ -129,14 +131,21 @@ if __name__=="__main__":
         print(k);_uniqProgressivePrint(points)
         ##y_vals=_delInitialZero(points)
         #x_vals=[ STEP*x for x in range(len(y_vals)) ]
+        
+        avgY=mean([p[1] for p in points])
         points=_uniq_points_y(points)
         startTimeStamp=points[0][0]
         x_vals,y_vals=[p[0]-startTimeStamp for p in points],[p[1] for p in points]
+        if x_vals[-1]<dur:  
+            x_vals.append(dur)
+            y_vals.append(y_vals[-1])
         print(x_vals)
         dirName=argv[1].split("/")[-1]
-        dirTarget="./"+dirName[:dirName.find(".")]+"_graphics/"
+        #dirTarget="./"+dirName[:dirName.find(".")]+"_graphics/"
+        dirTarget="./"+dirName+"_graphics/"
         try:    mkdir(dirTarget)
         except: pass
         open(dirTarget+"name","w").write(header)
-        plot(x_vals,y_vals,i,k.replace("/",""),dirTarget)
+        open(dirTarget+k+"avg","w").write(str(avgY))
+        plot(x_vals,y_vals,i,k.replace("/",""),dirTarget,savePoints=True)
         i+=1

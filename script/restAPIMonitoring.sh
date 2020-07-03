@@ -16,6 +16,7 @@ waitJobState(){
   while true;do
   	jobState=$(curl -s  localhost:8081/jobs/$JOBID | jq -r ".state")
   	if [ "$jobState" = "$targetState" ] || [ "$jobState" = 'FAILED' ]; then
+	  echo $jobState
   	  return
   	fi
   	sleep 1
@@ -46,7 +47,7 @@ echo ${VERTICES[@]} ${VERTICES_DESCR[@]}# ${#VERTICES[@]} ${#VERTICES_DESCR[@]}
 
 #throughput query level
 sub_task_level_poll=false 	#(vertex=chained subtask)
-if [[ $SUB_TASK_LEVEL_POLL == "false" ]];then sub_task_level_poll=false;fi
+if [[ $SUB_TASK_LEVEL_POLL == "true" ]];then sub_task_level_poll=true;fi
 #gather metrics for each vertices with a given polling interval with a large set of metrics keys
 export SLEEP_POLL=0.01
 if [[ $POLLING ]];then SLEEP_POLL=$POLLING;fi
@@ -65,14 +66,18 @@ for i in $(seq 0 $(( ${#VERTICES[@]} - 1))  );do
 	if $sub_task_level_poll;then
 		subTasksN=$(cat /tmp/$v.json  | jq ".subtasks | length")		#get the num of subtask ( not 1 if given PARALLELISM env var )
 		for j in $(seq 0 $(( $subTasksN - 1 )) );do 
-			export REST_ENDPOINT="localhost:8081/jobs/$JOBID/vertices/$v/subtasks/$j/metrics?get=numRecordsOutPerSecond,numRecordsInPerSecond,numBytesOutPerSecond,numBytesInPerSecond,numBytesInRemotePerSecond,numBytesOutRemotePerSecond,Timestamps/Watermarks.numRecordsIn,Timestamps/Watermarks.numRecordsOut"
+			export SUBTASKS_ENDPOINT="localhost:8081/jobs/$JOBID/vertices/$v"
+			export REST_ENDPOINT=$SUBTASKS_ENDPOINT+"/subtasks/$j/metrics?get=numRecordsOutPerSecond,numRecordsInPerSecond"
 			export j
-			sh -c 'while true;do curl -s $REST_ENDPOINT >> /tmp/$v.$j.json; echo -n "[\" $EPOCHREALTIME \"]"  >> /tmp/$v.$j.json;sleep $SLEEP_POLL;done' &	#polling process
+			sh -c 'state="SCHEDULED";while [ "$state" != "RUNNING" ];do state=$(curl -s $SUBTASKS_ENDPOINT | jq -r ".subtasks[$j].status"); sleep $SLEEP_POLL; done;
+				while true;do curl -s $REST_ENDPOINT >> /tmp/$v.$j.json; echo -n "[\" $EPOCHREALTIME \"]"  >> /tmp/$v.$j.json;sleep $SLEEP_POLL;done' &	#polling process
 		done
-	#query throughput at vertex (chained task) level ... TODO doc not clare diff vertex aggregated vs subtasks aggregated metrics...
+	#query throughput at vertex (chained task) level
 	else	
-		export REST_ENDPOINT="localhost:8081/jobs/$JOBID/vertices/$v/subtasks/metrics?get=numRecordsOutPerSecond,numRecordsInPerSecond,numBytesOutPerSecond,numBytesInPerSecond"
-		sh -c 'while true;do curl -s $REST_ENDPOINT >> /tmp/$v.json; echo -n "[\"$EPOCHREALTIME\"]"  >> /tmp/$v.json; sleep $SLEEP_POLL; done' &		#polling process
+		export SUBTASKS_ENDPOINT="localhost:8081/jobs/$JOBID/vertices/$v"
+		export REST_ENDPOINT=$SUBTASKS_ENDPOINT+"/metrics?get=0.numRecordsOutPerSecond,0.numRecordsInPerSecond"
+		sh -c 'state="SCHEDULED";while [ "$state" != "RUNNING" ];do state=$(curl -s $SUBTASKS_ENDPOINT | jq -r ".subtasks[0].status"); sleep $SLEEP_POLL;done;
+			while true;do curl -s $REST_ENDPOINT >> /tmp/$v.json; echo -n "[\"$EPOCHREALTIME\"]"  >> /tmp/$v.json; sleep $SLEEP_POLL; done' &		#polling process
 	fi
 done
 

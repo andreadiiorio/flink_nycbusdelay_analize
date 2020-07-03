@@ -7,6 +7,7 @@ nycBusDelays/ConvertTs.class
 nycBusDelays/Query2$FilterTimeRanges.class
 nycBusDelays/Query2$WatermarkingStrict.class
 nycBusDelays/AverageAggregate.class
+nycBusDelays/Query1$AscendingWatermarking.class
 nycBusDelays/RankReasons$1.class
 nycBusDelays/Query2$1.class
 nycBusDelays/Query1$WatermarkingStrict.class
@@ -15,5 +16,6 @@ nycBusDelays/Query2.class
 nycBusDelays/Query2$5.class
 nycBusDelays/Query2$TSKeySelector.class
 nycBusDelays/Query1.class
+nycBusDelays/Query2$AscendingWatermarking.class
 nycBusDelays/Utils.class
 nycBusDelays/Query1$1.class

@@ -5,18 +5,15 @@ import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.functions.KeySelector;
-import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor;
 import org.apache.flink.streaming.api.functions.windowing.ProcessAllWindowFunction;
-import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
@@ -48,7 +45,6 @@ public class Query2 {
         long end, start = System.nanoTime();
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-        env.setParallelism(1);
         // get input data by connecting to the socket
         DataStream<String> lines = env.socketTextStream(prop.getProperty("HOSTNAME"), Integer.parseInt(prop.getProperty("PORT")), "\n", 1);
         //parse fields and assign timestamp
@@ -69,7 +65,7 @@ public class Query2 {
         DataStream<Tuple2<Long, String>> delayReasonsPM =
                 delayReasons.filter(new FilterTimeRanges(prop.getProperty("PM_START"), prop.getProperty("PM_END")));
 
-        /// for each time range rank the topN reasons of bus delays in time windows
+        /// for each time range stream, rank the topN reasons of bus delays in time windows
         DataStream<Tuple2<Long, String>>[] delayTimeRanges = new DataStream[]{delayReasonsAM, delayReasonsPM};
         for (int i = 0; i < delayTimeRanges.length; i++) {
             DataStream<Tuple2<Long, String>> delayRange = delayTimeRanges[i];
@@ -89,8 +85,8 @@ public class Query2 {
             });
             if (FineTuneParallelism) delayCounts.setParallelism(Integer.parseInt(prop.getProperty("q2_count")));
 
-            //get the topN reasons using a RedBlack tree struct obtaining tuples like <winStartTs, "top1stReason ,top2ndReason...">
-            //also round timestamps to the midnight of their associated day for later outer join different timeRange streams
+            //get the topN reasons using a RedBlack tree based struct obtaining tuples like <winStartTs, "top1stReason ,top2ndReason...">
+            //also round timestamps to the midnight of their associated day for later outer join
             SingleOutputStreamOperator<Tuple2<Long, String>> reasonsRanked = delayCounts.timeWindowAll(WINDOW_SIZE)
                     .aggregate(new RankReasons(Integer.parseInt(prop.getProperty("TOPN")), CSV_SEP),
                             new ProcessAllWindowFunction<Tuple2<Long, String>, Tuple2<Long, String>, TimeWindow>() {    //initial timestamp <= winStart down to 00:00
@@ -99,7 +95,6 @@ public class Query2 {
                                     out.collect(new Tuple2<>(Utils.roundTsDownMidnight(context.window().getStart()), elements.iterator().next().f1));
                                 }
                             });
-            //if (FineTuneParallelism) reasonsRanked.setParallelism(Integer.parseInt(prop.getProperty("q2_rank")));
             delayTimeRanges[i] = reasonsRanked; //save rank
         }
 
@@ -150,28 +145,15 @@ public class Query2 {
             return timeRangeStart.compareTo(tupleTime) <= 0 && tupleTime.compareTo(timeRangeEnd) <= 0;
         }
     }
-
+    //ascending watermarking
     static class AscendingWatermarking extends AscendingTimestampExtractor<Tuple2<Long, String>> {
         @Override
         public long extractAscendingTimestamp(Tuple2<Long, String> element) {
             return element.f0;
         }
     }
-    static class WatermarkingStrict implements AssignerWithPunctuatedWatermarks<Tuple2<Long, String>> {
-
-        @Nullable
-        @Override
-        public Watermark checkAndGetNextWatermark(Tuple2<Long, String> lastElement, long extractedTimestamp) {
-            return new Watermark(lastElement.f0);
-        }
-
-        @Override
-        public long extractTimestamp(Tuple2<Long, String> element, long previousElementTimestamp) {
-            return element.f0;
-        }
-    }
-
-    static class TSKeySelector implements KeySelector<Tuple2<Long, String>, Long> {    //extract the time stamp field as stream key
+    //extract the time stamp field as stream key
+    static class TSKeySelector implements KeySelector<Tuple2<Long, String>, Long> {
 
         @Override
         public Long getKey(Tuple2<Long, String> value) throws Exception {

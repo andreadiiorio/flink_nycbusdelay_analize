@@ -1,6 +1,5 @@
 package nycBusDelays;
 
-import org.apache.commons.math3.analysis.function.Sin;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.tuple.Tuple;
@@ -11,15 +10,12 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
-import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.util.Collector;
 
-import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.Properties;
 
@@ -38,7 +34,6 @@ public class Query1 {
         long end,start=System.nanoTime();
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-        env.setParallelism(1);
         // get input data by connecting to the socket
         DataStream<String> lines = env.socketTextStream(prop.getProperty("HOSTNAME"), Integer.parseInt(prop.getProperty("PORT")), "\n", 1);
 
@@ -69,8 +64,7 @@ public class Query1 {
                     }
                 });
         if(FineTuneParallelism ) delaysNeighboroAverges.setParallelism(Integer.parseInt(prop.getProperty("q1_aggregate_parallelism")));
-        //group output neighboro's averages by starting timeStamp
-        //reduce by rewindowing
+        //group output neighboro's averages by starting timeStamp and reduce merge tuple into output string
         SingleOutputStreamOperator<Tuple2<Long, String>> out = delaysNeighboroAverges
                 .timeWindowAll(WINDOW_SIZE).reduce(new ReduceFunction<Tuple2<Long, String>>() {
                     @Override
@@ -78,11 +72,9 @@ public class Query1 {
                         return new Tuple2<>(value1.f0, value1.f1 + CSV_SEP + value2.f1 );
                     }
                 });
-        if (FineTuneParallelism) out.setParallelism(Integer.parseInt(prop.getProperty("q1_win_mergeAvgs")));
         //present the output and put into file steram sink
         SingleOutputStreamOperator<String> outTsConverted= out.map(new ConvertTs());
         if(FineTuneParallelism) outTsConverted.setParallelism(Integer.parseInt(prop.getProperty("SINK_PARALLELISM")));
-        //DataStreamSink<String> sink = outTsConverted.addSink(Utils.fileOutputSink(prop.getProperty("OUT_PATH1")));
         DataStreamSink<String> sink = outTsConverted.addSink(Utils.fileOutputSink(prop.getProperty("OUT_PATH1")));
         if(FineTuneParallelism) sink.setParallelism(Integer.parseInt(prop.getProperty("SINK_PARALLELISM")));
 
@@ -97,24 +89,6 @@ public class Query1 {
 
         @Override
         public long extractAscendingTimestamp(Tuple3<Long, String, Float> element) {
-            return element.f0;
-        }
-    }
-    /**
-     * Strict watermarking generation -> a watermark produced after each encountered element
-     */
-    private static class WatermarkingStrict implements AssignerWithPunctuatedWatermarks<Tuple3<Long, String, Float>> {
-
-        @Nullable
-        @Override
-        public Watermark checkAndGetNextWatermark(Tuple3<Long, String, Float> lastElement, long extractedTimestamp) {
-            //TODO WATERMARK ONLY AFTER TIME DELAY (WIN SIZE) passed from last element time stamp <- from windowSize timeStamp conversion
-            //e.g. if lastElement > before +winSize -> watermark...
-            return new Watermark(lastElement.f0);
-        }
-
-        @Override
-        public long extractTimestamp(Tuple3<Long, String, Float> element, long previousElementTimestamp) {
             return element.f0;
         }
     }

@@ -1,4 +1,4 @@
-27-08-2015,AM,Heavy_Traffic,26,Other,10,Mechanical_Problem,3,PM,Heavy_Traffic,1,Won`t_Start,1,Other,1
+27-08-2015,AM,Heavy_Traffic,26,Other,10,Mechanical_Problem,3,PM,Won`t_Start,1,Heavy_Traffic,1,Other,1
 03-09-2015,AM,Heavy_Traffic,512,Other,102,Mechanical_Problem,70,PM,Delayed_by_School,31,Heavy_Traffic,23,Other,23
 10-09-2015,AM,Heavy_Traffic,978,Other,163,Mechanical_Problem,90,PM,Heavy_Traffic,97,Other,51,Mechanical_Problem,46
 17-09-2015,AM,Heavy_Traffic,950,Other,171,Mechanical_Problem,105,PM,Other,77,Heavy_Traffic,74,Mechanical_Problem,47
@@ -41,7 +41,7 @@
 02-06-2016,AM,Heavy_Traffic,687,Other,207,Mechanical_Problem,102,PM,Late_return_from_Field_Trip,167,Heavy_Traffic,158,Other,68
 09-06-2016,AM,Heavy_Traffic,408,Other,106,Mechanical_Problem,67,PM,Heavy_Traffic,57,Late_return_from_Field_Trip,43,Mechanical_Problem,38
 16-06-2016,AM,Heavy_Traffic,454,Other,111,Mechanical_Problem,83,PM,Heavy_Traffic,91,Mechanical_Problem,44,Other,36
-23-06-2016,AM,Heavy_Traffic,181,Other,60,Mechanical_Problem,41,PM,Heavy_Traffic,63,Other,19,Mechanical_Problem,19
+23-06-2016,AM,Heavy_Traffic,181,Other,60,Mechanical_Problem,41,PM,Heavy_Traffic,63,Mechanical_Problem,19,Other,19
 30-06-2016,AM,Heavy_Traffic,111,Other,22,Mechanical_Problem,14,PM,Mechanical_Problem,9,Heavy_Traffic,6,Other,6
 07-07-2016,AM,Heavy_Traffic,437,Other,151,Mechanical_Problem,47,PM,Heavy_Traffic,62,Won`t_Start,31,Other,22
 14-07-2016,AM,Heavy_Traffic,417,Other,110,Mechanical_Problem,61,PM,Heavy_Traffic,85,Other,34,Mechanical_Problem,28
@@ -83,7 +83,7 @@
 23-03-2017,AM,Heavy_Traffic,1119,Other,157,Mechanical_Problem,137,PM,Heavy_Traffic,163,Mechanical_Problem,60,Late_return_from_Field_Trip,51
 30-03-2017,AM,Heavy_Traffic,1436,Other,186,Mechanical_Problem,151,PM,Heavy_Traffic,214,Late_return_from_Field_Trip,71,Mechanical_Problem,63
 06-04-2017,AM,Heavy_Traffic,463,Mechanical_Problem,55,Other,46,PM,Heavy_Traffic,104,Late_return_from_Field_Trip,40,Mechanical_Problem,34
-13-04-2017,AM,Heavy_Traffic,311,Mechanical_Problem,48,Other,47,PM,Heavy_Traffic,62,Mechanical_Problem,11,Won`t_Start,11
+13-04-2017,AM,Heavy_Traffic,311,Mechanical_Problem,48,Other,47,PM,Heavy_Traffic,62,Won`t_Start,11,Mechanical_Problem,11
 20-04-2017,AM,Heavy_Traffic,1262,Other,190,Mechanical_Problem,124,PM,Heavy_Traffic,230,Mechanical_Problem,61,Other,44
 27-04-2017,AM,Heavy_Traffic,1164,Mechanical_Problem,163,Other,161,PM,Heavy_Traffic,232,Late_return_from_Field_Trip,98,Mechanical_Problem,84
 04-05-2017,AM,Heavy_Traffic,1114,Other,180,Mechanical_Problem,148,PM,Heavy_Traffic,241,Mechanical_Problem,92,Late_return_from_Field_Trip,91
@@ -117,13 +117,13 @@
 07-12-2017,AM,Heavy_Traffic,1371,Mechanical_Problem,280,Other,230,PM,Heavy_Traffic,263,Other,96,Mechanical_Problem,72
 14-12-2017,AM,Heavy_Traffic,2103,Mechanical_Problem,355,Other,305,PM,Heavy_Traffic,273,Mechanical_Problem,105,Other,103
 21-12-2017,AM,Heavy_Traffic,438,Other,91,Mechanical_Problem,82,PM,Heavy_Traffic,152,Other,33,Mechanical_Problem,29
-28-12-2017,AM,Heavy_Traffic,387,Mechanical_Problem,148,Won`t_Start,95,PM,Heavy_Traffic,69,Other,34,Mechanical_Problem,34
+28-12-2017,AM,Heavy_Traffic,387,Mechanical_Problem,148,Won`t_Start,95,PM,Heavy_Traffic,69,Mechanical_Problem,34,Other,34
 04-01-2018,AM,Heavy_Traffic,1085,Weather_Conditions,396,Mechanical_Problem,330,PM,Heavy_Traffic,163,Mechanical_Problem,64,Other,59
 11-01-2018,AM,Heavy_Traffic,934,Other,209,Mechanical_Problem,174,PM,Heavy_Traffic,135,Other,50,Mechanical_Problem,36
 18-01-2018,AM,Heavy_Traffic,1313,Other,331,Mechanical_Problem,207,PM,Heavy_Traffic,287,Mechanical_Problem,102,Other,57
 25-01-2018,AM,Heavy_Traffic,1234,Other,298,Mechanical_Problem,205,PM,Heavy_Traffic,211,Mechanical_Problem,66,Other,55
 01-02-2018,AM,Heavy_Traffic,864,Other,191,Mechanical_Problem,159,PM,Heavy_Traffic,127,Other,68,Mechanical_Problem,52
-08-02-2018,AM,Heavy_Traffic,1063,Other,243,Mechanical_Problem,182,PM,Heavy_Traffic,148,Mechanical_Problem,70,Other,70
+08-02-2018,AM,Heavy_Traffic,1063,Other,243,Mechanical_Problem,182,PM,Heavy_Traffic,148,Other,70,Mechanical_Problem,70
 15-02-2018,AM,Heavy_Traffic,264,Other,59,Mechanical_Problem,55,PM,Heavy_Traffic,64,Other,40,Late_return_from_Field_Trip,20
 22-02-2018,AM,Heavy_Traffic,903,Mechanical_Problem,235,Other,213,PM,Heavy_Traffic,137,Mechanical_Problem,64,Other,51
 01-03-2018,AM,Heavy_Traffic,1464,Mechanical_Problem,286,Other,238,PM,Heavy_Traffic,340,Weather_Conditions,73,Mechanical_Problem,66
@@ -149,7 +149,7 @@
 20-09-2018,AM,Heavy_Traffic,1633,Other,220,Mechanical_Problem,169,PM,Heavy_Traffic,417,Mechanical_Problem,48,Other,43
 27-09-2018,AM,Heavy_Traffic,683,Mechanical_Problem,82,Other,70,PM,Heavy_Traffic,202,Mechanical_Problem,39,Other,39
 04-10-2018,AM,Heavy_Traffic,464,Mechanical_Problem,72,Other,70,PM,Heavy_Traffic,198,Mechanical_Problem,29,Other,26
-11-10-2018,AM,Heavy_Traffic,1392,Mechanical_Problem,198,Other,198,PM,Heavy_Traffic,491,Mechanical_Problem,95,Other,68
+11-10-2018,AM,Heavy_Traffic,1392,Other,198,Mechanical_Problem,198,PM,Heavy_Traffic,491,Mechanical_Problem,95,Other,68
 18-10-2018,AM,Heavy_Traffic,2249,Other,314,Mechanical_Problem,257,PM,Heavy_Traffic,757,Mechanical_Problem,148,Other,103
 25-10-2018,AM,Heavy_Traffic,1754,Other,330,Mechanical_Problem,224,PM,Heavy_Traffic,604,Mechanical_Problem,103,Late_return_from_Field_Trip,91
 01-11-2018,AM,Heavy_Traffic,2026,Other,343,Mechanical_Problem,250,PM,Heavy_Traffic,724,Mechanical_Problem,88,Other,86
@@ -158,7 +158,7 @@
 22-11-2018,AM,Heavy_Traffic,1914,Other,280,Mechanical_Problem,251,PM,Heavy_Traffic,706,Late_return_from_Field_Trip,75,Other,59
 29-11-2018,AM,Heavy_Traffic,1450,Other,233,Mechanical_Problem,193,PM,Heavy_Traffic,516,Other,77,Mechanical_Problem,63
 06-12-2018,AM,Heavy_Traffic,16,Other,8,Flat_Tire,4,PM,Heavy_Traffic,5,Other,4,Mechanical_Problem,3
-13-12-2018,AM,Other,12,Heavy_Traffic,10,Mechanical_Problem,5,PM,Other,2,Heavy_Traffic,2,Mechanical_Problem,2
+13-12-2018,AM,Other,12,Heavy_Traffic,10,Mechanical_Problem,5,PM,Heavy_Traffic,2,Other,2,Mechanical_Problem,2
 20-12-2018,AM,Heavy_Traffic,11,Mechanical_Problem,5,Other,2,PM,Other,1,Mechanical_Problem,1
 27-12-2018,AM,Heavy_Traffic,5,Other,3,Won`t_Start,1,PM,Won`t_Start,1
 03-01-2019,AM,Heavy_Traffic,1061,Other,187,Mechanical_Problem,139,PM,Heavy_Traffic,420,Other,78,Mechanical_Problem,54
@@ -177,8 +177,8 @@
 04-04-2019,AM,Heavy_Traffic,1353,Other,328,Mechanical_Problem,215,PM,Heavy_Traffic,371,Other,116,Mechanical_Problem,73
 11-04-2019,AM,Heavy_Traffic,320,Other,77,Mechanical_Problem,44,PM,Heavy_Traffic,72,Other,15,Mechanical_Problem,13
 18-04-2019,AM,Heavy_Traffic,4,Other,2,PM,Heavy_Traffic,1
-25-04-2019,AM,Heavy_Traffic,7,Other,5,PM,Heavy_Traffic,3,Won`t_Start,1,Late_return_from_Field_Trip,1
-02-05-2019,AM,Heavy_Traffic,18,Other,7,Won`t_Start,2,PM,Mechanical_Problem,3,Other,2,Won`t_Start,2
+25-04-2019,AM,Heavy_Traffic,7,Other,5,PM,Heavy_Traffic,3,Late_return_from_Field_Trip,1,Won`t_Start,1
+02-05-2019,AM,Heavy_Traffic,18,Other,7,Won`t_Start,2,PM,Mechanical_Problem,3,Flat_Tire,2,Won`t_Start,2
 09-05-2019,AM,Heavy_Traffic,17,Other,13,Flat_Tire,6,PM,Heavy_Traffic,4,Other,2,Flat_Tire,2
 16-05-2019,AM,Heavy_Traffic,1108,Other,256,Mechanical_Problem,148,PM,Heavy_Traffic,428,Late_return_from_Field_Trip,147,Other,100
 23-05-2019,AM,Heavy_Traffic,1195,Other,226,Mechanical_Problem,134,PM,Heavy_Traffic,296,Late_return_from_Field_Trip,111,Other,42
